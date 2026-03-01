@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { NButton, NIcon, NGradientText } from 'naive-ui'
-import { useRouter } from 'vue-router'
 import {
   RocketOutline,
   ChatbubblesOutline,
@@ -9,8 +8,7 @@ import {
   ExtensionPuzzleOutline,
   ShieldCheckmarkOutline,
 } from '@vicons/ionicons5'
-
-const router = useRouter()
+import AppNavbar from '@/components/AppNavbar.vue'
 
 const features = [
   {
@@ -48,6 +46,8 @@ const features = [
 
 <template>
   <div class="landing">
+    <AppNavbar />
+
     <!-- Hero -->
     <section class="hero">
       <div class="hero-bg"></div>
@@ -67,15 +67,6 @@ const features = [
           强大、灵活、可扩展的私有化解决方案
         </p>
         <div class="hero-actions">
-          <NButton
-            type="primary"
-            size="large"
-            round
-            strong
-            @click="router.push('/admin')"
-          >
-            进入控制台
-          </NButton>
           <NButton
             size="large"
             round
@@ -125,13 +116,12 @@ const features = [
 <style scoped>
 .landing {
   min-height: 100vh;
-  background: #0a0a0f;
-  color: #e4e4e7;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   overflow-x: hidden;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Hero */
+/* ============ HERO ============ */
 .hero {
   position: relative;
   display: flex;
@@ -140,27 +130,6 @@ const features = [
   min-height: 100vh;
   padding: 2rem;
   text-align: center;
-}
-
-.hero-bg {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.15), transparent),
-    radial-gradient(ellipse 60% 40% at 70% 80%, rgba(139, 92, 246, 0.08), transparent);
-}
-
-.hero-glow {
-  position: absolute;
-  top: 30%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 600px;
-  height: 600px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(99, 102, 241, 0.08) 0%, transparent 70%);
-  filter: blur(60px);
-  pointer-events: none;
 }
 
 .hero-content {
@@ -174,9 +143,6 @@ const features = [
   padding: 6px 16px;
   margin-bottom: 2rem;
   font-size: 14px;
-  color: #a78bfa;
-  background: rgba(139, 92, 246, 0.1);
-  border: 1px solid rgba(139, 92, 246, 0.2);
   border-radius: 999px;
 }
 
@@ -191,7 +157,6 @@ const features = [
 .hero-subtitle {
   font-size: 20px;
   line-height: 1.7;
-  color: #a1a1aa;
   margin: 0 0 2.5rem;
 }
 
@@ -202,7 +167,7 @@ const features = [
   flex-wrap: wrap;
 }
 
-/* Features */
+/* ============ FEATURES ============ */
 .features {
   padding: 6rem 2rem;
   max-width: 1100px;
@@ -214,7 +179,6 @@ const features = [
   font-size: 32px;
   font-weight: 700;
   margin: 0 0 3rem;
-  color: #f4f4f5;
 }
 
 .features-grid {
@@ -225,17 +189,12 @@ const features = [
 
 .feature-card {
   padding: 32px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 16px;
   transition: all 0.3s ease;
 }
 
 .feature-card:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(99, 102, 241, 0.3);
   transform: translateY(-4px);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
 }
 
 .feature-icon {
@@ -254,17 +213,15 @@ const features = [
   font-size: 18px;
   font-weight: 600;
   margin: 0 0 8px;
-  color: #f4f4f5;
 }
 
 .feature-card p {
   font-size: 14px;
   line-height: 1.7;
-  color: #a1a1aa;
   margin: 0;
 }
 
-/* Tech Stack */
+/* ============ TECH STACK ============ */
 .tech-stack {
   padding: 4rem 2rem 6rem;
   text-align: center;
@@ -283,9 +240,6 @@ const features = [
   padding: 8px 20px;
   font-size: 14px;
   font-weight: 500;
-  color: #d4d4d8;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 999px;
   transition: all 0.2s ease;
 }
@@ -296,16 +250,162 @@ const features = [
   background: rgba(139, 92, 246, 0.08);
 }
 
-/* Footer */
+/* ============ FOOTER ============ */
 .landing-footer {
   padding: 2rem;
   text-align: center;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .landing-footer p {
   margin: 0;
   font-size: 13px;
+}
+
+/* ============ DARK THEME ============ */
+[data-theme="dark"] .landing {
+  background: #0a0a0f;
+  color: #e4e4e7;
+}
+
+[data-theme="dark"] .hero-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.15), transparent),
+    radial-gradient(ellipse 60% 40% at 70% 80%, rgba(139, 92, 246, 0.08), transparent);
+}
+
+[data-theme="dark"] .hero-glow {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.08) 0%, transparent 70%);
+  filter: blur(60px);
+  pointer-events: none;
+}
+
+[data-theme="dark"] .hero-badge {
+  color: #a78bfa;
+  background: rgba(139, 92, 246, 0.1);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+[data-theme="dark"] .hero-subtitle {
+  color: #a1a1aa;
+}
+
+[data-theme="dark"] .section-title {
+  color: #f4f4f5;
+}
+
+[data-theme="dark"] .feature-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .feature-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(99, 102, 241, 0.3);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .feature-card h3 {
+  color: #f4f4f5;
+}
+
+[data-theme="dark"] .feature-card p {
+  color: #a1a1aa;
+}
+
+[data-theme="dark"] .tech-tag {
+  color: #d4d4d8;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .landing-footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .landing-footer p {
   color: #71717a;
+}
+
+/* ============ LIGHT THEME ============ */
+[data-theme="light"] .landing {
+  background: #ffffff;
+  color: #18181b;
+}
+
+[data-theme="light"] .hero-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.08), transparent),
+    radial-gradient(ellipse 60% 40% at 70% 80%, rgba(139, 92, 246, 0.04), transparent);
+}
+
+[data-theme="light"] .hero-glow {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.05) 0%, transparent 70%);
+  filter: blur(60px);
+  pointer-events: none;
+}
+
+[data-theme="light"] .hero-badge {
+  color: #6366f1;
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+}
+
+[data-theme="light"] .hero-subtitle {
+  color: #71717a;
+}
+
+[data-theme="light"] .section-title {
+  color: #18181b;
+}
+
+[data-theme="light"] .feature-card {
+  background: #fafafa;
+  border: 1px solid #f0f0f0;
+}
+
+[data-theme="light"] .feature-card:hover {
+  background: #f5f3ff;
+  border-color: rgba(99, 102, 241, 0.25);
+  box-shadow: 0 20px 40px rgba(99, 102, 241, 0.08);
+}
+
+[data-theme="light"] .feature-card h3 {
+  color: #18181b;
+}
+
+[data-theme="light"] .feature-card p {
+  color: #71717a;
+}
+
+[data-theme="light"] .tech-tag {
+  color: #3f3f46;
+  background: #f4f4f5;
+  border: 1px solid #e4e4e7;
+}
+
+[data-theme="light"] .landing-footer {
+  border-top: 1px solid #f0f0f0;
+}
+
+[data-theme="light"] .landing-footer p {
+  color: #a1a1aa;
 }
 </style>

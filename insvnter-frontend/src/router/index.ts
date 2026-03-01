@@ -9,7 +9,7 @@ const router = createRouter({
       component: () => import('../views/LandingPage.vue'),
     },
     {
-      path: '/admin',
+      path: '/console/manage',
       component: () => import('../layouts/AdminLayout.vue'),
       children: [
         {

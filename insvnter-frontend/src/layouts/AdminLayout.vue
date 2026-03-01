@@ -17,7 +17,6 @@ import type { MenuOption } from 'naive-ui'
 import {
   GridOutline,
   HomeOutline,
-  LogOutOutline,
 } from '@vicons/ionicons5'
 
 const router = useRouter()
@@ -38,7 +37,7 @@ const menuOptions: MenuOption[] = [
 function handleMenuUpdate(key: string) {
   switch (key) {
     case 'dashboard':
-      router.push('/admin')
+      router.push('/console/manage')
       break
   }
 }
@@ -118,14 +117,6 @@ function handleMenuUpdate(key: string) {
   height: 100vh;
 }
 
-.admin-sider {
-  background: #18181c;
-}
-
-.admin-sider :deep(.n-layout-sider-scroll-container) {
-  background: #18181c;
-}
-
 .sider-header {
   display: flex;
   align-items: center;
@@ -149,10 +140,6 @@ function handleMenuUpdate(key: string) {
   height: 56px;
   display: flex;
   align-items: center;
-}
-
-.admin-content {
-  background: #111113;
 }
 
 /* Transition */
