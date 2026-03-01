@@ -8,10 +8,12 @@ import {
   NButton,
   NDivider,
   NIcon,
+  NSpin,
   useMessage,
 } from 'naive-ui'
 import { CloseOutline } from '@vicons/ionicons5'
 import { useAuthStore } from '@/stores/auth'
+import { authApi } from '@/api'
 
 const props = defineProps<{
   show: boolean
@@ -23,9 +25,29 @@ const auth = useAuthStore()
 const message = useMessage()
 const activeTab = ref<'login' | 'register'>('login')
 
+// Captcha state
+const captchaId = ref('')
+const captchaImage = ref('')
+const captchaLoading = ref(false)
+
+async function loadCaptcha() {
+  captchaLoading.value = true
+  try {
+    const res = await authApi.getCaptcha()
+    captchaId.value = res.data.captchaId
+    captchaImage.value = res.data.image
+  } catch {
+    captchaImage.value = ''
+  } finally {
+    captchaLoading.value = false
+  }
+}
+
+// 弹窗打开时加载验证码
 watch(() => props.show, (val) => {
-  if (val && props.initialTab) {
-    activeTab.value = props.initialTab
+  if (val) {
+    if (props.initialTab) activeTab.value = props.initialTab
+    loadCaptcha()
   }
 })
 
@@ -44,13 +66,19 @@ async function handleLogin() {
     message.warning('请填写用户名和密码')
     return
   }
+  if (!loginForm.value.captcha) {
+    message.warning('请输入验证码')
+    return
+  }
   loginLoading.value = true
   try {
-    await new Promise((r) => setTimeout(r, 500))
-    auth.login(loginForm.value.username, loginForm.value.password)
+    await auth.login(loginForm.value.username, loginForm.value.password, loginForm.value.captcha, captchaId.value)
     message.success(`欢迎回来，${loginForm.value.username}！`)
     visible.value = false
     loginForm.value = { username: '', password: '', captcha: '' }
+  } catch (e: any) {
+    message.error(e.message || '登录失败')
+    loadCaptcha()
   } finally {
     loginLoading.value = false
   }
@@ -66,13 +94,19 @@ async function handleRegister() {
     message.error('两次密码不一致')
     return
   }
+  if (!f.captcha) {
+    message.warning('请输入验证码')
+    return
+  }
   registerLoading.value = true
   try {
-    await new Promise((r) => setTimeout(r, 500))
-    auth.register(f.username, f.email, f.password)
+    await auth.register(f.username, f.email, f.password, f.captcha, captchaId.value)
     message.success(`注册成功，欢迎 ${f.username}！`)
     visible.value = false
     registerForm.value = { username: '', email: '', password: '', confirmPassword: '', captcha: '' }
+  } catch (e: any) {
+    message.error(e.message || '注册失败')
+    loadCaptcha()
   } finally {
     registerLoading.value = false
   }
@@ -113,7 +147,11 @@ async function handleRegister() {
           <NFormItem path="captcha">
             <div class="captcha-row">
               <NInput v-model:value="loginForm.captcha" placeholder="验证码" round class="captcha-input" />
-              <div class="captcha-img"><span>XKCD</span></div>
+              <div class="captcha-img" @click="loadCaptcha" title="点击刷新验证码">
+                <NSpin v-if="captchaLoading" size="small" />
+                <img v-else-if="captchaImage" :src="captchaImage" alt="captcha" />
+                <span v-else>加载中</span>
+              </div>
             </div>
           </NFormItem>
           <NButton type="primary" block strong round :loading="loginLoading" attr-type="submit">
@@ -143,7 +181,11 @@ async function handleRegister() {
           <NFormItem path="captcha">
             <div class="captcha-row">
               <NInput v-model:value="registerForm.captcha" placeholder="验证码" round class="captcha-input" />
-              <div class="captcha-img"><span>A3F9</span></div>
+              <div class="captcha-img" @click="loadCaptcha" title="点击刷新验证码">
+                <NSpin v-if="captchaLoading" size="small" />
+                <img v-else-if="captchaImage" :src="captchaImage" alt="captcha" />
+                <span v-else>加载中</span>
+              </div>
             </div>
           </NFormItem>
           <NButton type="primary" block strong round :loading="registerLoading" attr-type="submit">
@@ -151,7 +193,7 @@ async function handleRegister() {
           </NButton>
         </NForm>
         <div class="auth-switch">
-          已有账号？<NButton text type="primary" size="tiny"  @click="activeTab = 'login'">立即登录</NButton>
+          已有账号？<NButton text type="primary" size="tiny" @click="activeTab = 'login'">立即登录</NButton>
         </div>
       </template>
     </div>
@@ -293,13 +335,17 @@ async function handleRegister() {
   align-items: center;
   justify-content: center;
   border-radius: 17px;
-  font-size: 16px;
-  font-weight: 700;
-  font-family: 'Courier New', monospace;
-  letter-spacing: 4px;
+  font-size: 12px;
   cursor: pointer;
   user-select: none;
   flex-shrink: 0;
+  overflow: hidden;
+}
+
+.captcha-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 [data-theme="dark"] .captcha-img {
