@@ -1,0 +1,10 @@
+# 开发环境配置
+spring:
+  devtools:
+    restart:
+      enabled: true
+
+logging:
+  level:
+    com.insvnter.ai: DEBUG
+    org.springframework.web: DEBUG

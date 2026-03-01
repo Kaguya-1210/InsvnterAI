@@ -1,0 +1,5 @@
+# 生产环境配置
+logging:
+  level:
+    com.insvnter.ai: INFO
+    org.springframework.web: WARN
