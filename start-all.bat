@@ -1,24 +1,19 @@
 @echo off
-chcp 65001 >nul
 echo ========================================
-echo   InsvnterAI - 一键启动前后端
+echo   InsvnterAI - Start All Services
 echo ========================================
 echo.
 
-:: 启动后端（新窗口）
-echo [INFO] 正在启动后端服务...
-start "InsvnterAI Backend" cmd /k "cd /d %~dp0 && call start-backend.bat"
+echo [INFO] Starting backend...
+start "InsvnterAI-Backend" cmd /c "cd /d "%~dp0" & call start-backend.bat"
 
-:: 等待 2 秒后启动前端
 timeout /t 2 /nobreak >nul
 
-:: 启动前端（新窗口）
-echo [INFO] 正在启动前端服务...
-start "InsvnterAI Frontend" cmd /k "cd /d %~dp0 && call start-frontend.bat"
+echo [INFO] Starting frontend...
+start "InsvnterAI-Frontend" cmd /c "cd /d "%~dp0" & call start-frontend.bat"
 
 echo.
-echo [INFO] 前后端已在新窗口中启动
-echo [INFO] 前端: http://localhost:5173
-echo [INFO] 后端: http://localhost:8080/api/health
+echo [INFO] Frontend: http://localhost:5173
+echo [INFO] Backend:  http://localhost:8080/api/health
 echo.
 pause
