@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, h } from 'vue'
 import {
   NButton,
   NIcon,
@@ -28,7 +28,7 @@ function openAuth(tab: 'login' | 'register') {
 }
 
 const userMenuOptions = [
-  { label: '退出登录', key: 'logout', icon: LogOutOutline },
+  { label: '退出登录', key: 'logout', icon: () => h(NIcon, null, { default: () => h(LogOutOutline) }) },
 ]
 
 function handleUserMenu(key: string) {
