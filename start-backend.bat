@@ -1,10 +1,31 @@
 @echo off
+setlocal EnableDelayedExpansion
 echo ========================================
 echo   InsvnterAI - Backend Server
 echo ========================================
 echo.
 
 cd /d "%~dp0insvnter-backend"
+
+:: Load .env if exists (set env vars for Spring Boot)
+if exist ".env" (
+    echo [INFO] Loading config from .env ...
+    for /f "usebackq tokens=*" %%L in (".env") do (
+        set "line=%%L"
+        :: Skip comments and blank lines
+        if not "!line:~0,1!"=="#" (
+            if not "!line!"=="" (
+                set "%%L"
+            )
+        )
+    )
+    echo [OK]   .env loaded
+    echo.
+) else (
+    echo [WARN] No .env found, using application.yml defaults.
+    echo [TIP]  Run config-db.bat to configure databases.
+    echo.
+)
 
 where mvn >nul 2>&1
 if %errorlevel% neq 0 (

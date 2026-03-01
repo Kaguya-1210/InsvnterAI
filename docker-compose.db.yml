@@ -1,17 +1,16 @@
 services:
-  mariadb:
-    image: mariadb:11
-    container_name: insvnter-mariadb
+  mysql:
+    image: mysql:8.0
+    container_name: insvnter-mysql
     restart: unless-stopped
     ports:
       - "3306:3306"
     environment:
-      MARIADB_ROOT_PASSWORD: root
-      MARIADB_DATABASE: insvnter_ai
-      MARIADB_CHARACTER_SET: utf8mb4
-      MARIADB_COLLATION: utf8mb4_unicode_ci
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: insvnter_ai
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
-      - mariadb_data:/var/lib/mysql
+      - mysql_data:/var/lib/mysql
 
   redis:
     image: redis:7-alpine
@@ -32,6 +31,6 @@ services:
       - mongo_data:/data/db
 
 volumes:
-  mariadb_data:
+  mysql_data:
   redis_data:
   mongo_data:

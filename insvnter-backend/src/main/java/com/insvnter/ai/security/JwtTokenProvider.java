@@ -24,8 +24,14 @@ public class JwtTokenProvider {
             @Value("${app.jwt.secret}") String secret,
             @Value("${app.jwt.expiration-ms}") long expirationMs,
             StringRedisTemplate redisTemplate) {
-        this.key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(
-                java.util.Base64.getEncoder().encodeToString(secret.getBytes())));
+        // SHA-256 ensures key is always 256 bits regardless of secret length
+        byte[] keyBytes;
+        try {
+            keyBytes = java.security.MessageDigest.getInstance("SHA-256").digest(secret.getBytes());
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
+        this.key = Keys.hmacShaKeyFor(keyBytes);
         this.expirationMs = expirationMs;
         this.redisTemplate = redisTemplate;
     }
