@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, h } from 'vue'
-import { useRouter, RouterView } from 'vue-router'
+import { ref, h, computed } from 'vue'
+import { useRouter, useRoute, RouterView } from 'vue-router'
 import {
   NLayout,
   NLayoutSider,
@@ -12,14 +12,22 @@ import {
   NAvatar,
   NSpace,
   NText,
+  NDropdown,
 } from 'naive-ui'
 import type { MenuOption } from 'naive-ui'
 import {
   GridOutline,
   HomeOutline,
+  PeopleOutline,
+  SettingsOutline,
+  LogOutOutline,
+  PersonCircleOutline,
 } from '@vicons/ionicons5'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
+const route = useRoute()
+const auth = useAuthStore()
 const collapsed = ref(false)
 
 function renderIcon(icon: any) {
@@ -32,13 +40,48 @@ const menuOptions: MenuOption[] = [
     key: 'dashboard',
     icon: renderIcon(GridOutline),
   },
+  {
+    label: '用户管理',
+    key: 'user-manage',
+    icon: renderIcon(PeopleOutline),
+  },
+  {
+    label: '系统设置',
+    key: 'system-settings',
+    icon: renderIcon(SettingsOutline),
+  },
 ]
+
+const activeKey = computed(() => {
+  return route.name as string || 'dashboard'
+})
 
 function handleMenuUpdate(key: string) {
   switch (key) {
     case 'dashboard':
       router.push('/console/manage')
       break
+    case 'user-manage':
+      router.push('/console/manage/users')
+      break
+    case 'system-settings':
+      router.push('/console/manage/settings')
+      break
+  }
+}
+
+const userMenuOptions = [
+  { label: '返回首页', key: 'home', icon: renderIcon(HomeOutline) },
+  { type: 'divider' as const, key: 'd1' },
+  { label: '退出登录', key: 'logout', icon: renderIcon(LogOutOutline) },
+]
+
+async function handleUserMenuSelect(key: string) {
+  if (key === 'home') {
+    router.push('/')
+  } else if (key === 'logout') {
+    await auth.logout()
+    router.push('/')
   }
 }
 </script>
@@ -77,7 +120,7 @@ function handleMenuUpdate(key: string) {
         :collapsed-width="64"
         :collapsed-icon-size="20"
         :options="menuOptions"
-        default-value="dashboard"
+        :value="activeKey"
         @update:value="handleMenuUpdate"
       />
     </NLayoutSider>
@@ -86,18 +129,19 @@ function handleMenuUpdate(key: string) {
     <NLayout>
       <NLayoutHeader bordered class="admin-header">
         <NSpace align="center" justify="space-between" style="width: 100%; padding: 0 24px; height: 100%;">
-          <NText strong style="font-size: 16px;">控制台</NText>
-          <NSpace align="center" :size="16">
-            <NButton
-              text
-              @click="router.push('/')"
-            >
+          <NText strong style="font-size: 16px;">管理控制台</NText>
+          <NDropdown
+            :options="userMenuOptions"
+            @select="handleUserMenuSelect"
+            trigger="click"
+          >
+            <NButton text style="display: flex; align-items: center; gap: 8px;">
               <template #icon>
-                <NIcon :component="HomeOutline" />
+                <NIcon :component="PersonCircleOutline" :size="20" />
               </template>
-              返回首页
+              {{ auth.user?.username || 'Admin' }}
             </NButton>
-          </NSpace>
+          </NDropdown>
         </NSpace>
       </NLayoutHeader>
 

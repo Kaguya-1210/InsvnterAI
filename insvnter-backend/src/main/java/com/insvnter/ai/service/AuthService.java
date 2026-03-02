@@ -11,6 +11,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -42,6 +43,7 @@ public class AuthService {
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setRole(User.Role.USER);
+        user.setEnabled(true);
         userRepository.save(user);
 
         // 生成 token
@@ -60,6 +62,15 @@ public class AuthService {
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new IllegalArgumentException("用户名或密码错误");
         }
+
+        // 检查账户状态
+        if (!user.isEnabled()) {
+            throw new IllegalArgumentException("账户已被禁用，请联系管理员");
+        }
+
+        // 更新最后登录时间
+        user.setLastLoginAt(LocalDateTime.now());
+        userRepository.save(user);
 
         String token = jwtTokenProvider.generateToken(user.getUsername(), user.getRole().name());
         return new AuthResponse(token, user.getUsername(), user.getEmail(), user.getRole().name());

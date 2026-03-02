@@ -31,6 +31,11 @@ public class User {
     @Column(nullable = false, length = 10)
     private Role role = Role.USER;
 
+    @Column(nullable = false)
+    private boolean enabled = true;
+
+    private LocalDateTime lastLoginAt;
+
     @CreationTimestamp
     @Column(updatable = false)
     private LocalDateTime createdAt;

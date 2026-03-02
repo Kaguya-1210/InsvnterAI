@@ -7,8 +7,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 @RestController
@@ -17,22 +22,147 @@ import java.util.Map;
 public class AdminController {
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    // ==================== 仪表盘 ====================
+
+    @GetMapping("/dashboard")
+    public ApiResult<Map<String, Object>> dashboard() {
+        LocalDateTime todayStart = LocalDate.now().atStartOfDay();
+
+        Map<String, Object> stats = new LinkedHashMap<>();
+        stats.put("totalUsers", userRepository.count());
+        stats.put("todayNewUsers", userRepository.countByCreatedAtAfter(todayStart));
+        stats.put("activeUsers", userRepository.countByEnabled(true));
+        stats.put("disabledUsers", userRepository.countByEnabled(false));
+        stats.put("adminCount", userRepository.countByRole(User.Role.ADMIN));
+        stats.put("userCount", userRepository.countByRole(User.Role.USER));
+
+        return ApiResult.ok(stats);
+    }
+
+    // ==================== 用户管理 ====================
 
     @GetMapping("/users")
     public ApiResult<Page<Map<String, Object>>> listUsers(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String role) {
 
-        Page<Map<String, Object>> users = userRepository
-                .findAll(PageRequest.of(page, size, Sort.by("createdAt").descending()))
-                .map(user -> Map.<String, Object>of(
-                        "id", user.getId(),
-                        "username", user.getUsername(),
-                        "email", user.getEmail(),
-                        "role", user.getRole().name(),
-                        "createdAt", user.getCreatedAt().toString()
-                ));
+        var pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
 
-        return ApiResult.ok(users);
+        Page<User> users;
+        User.Role roleFilter = parseRole(role);
+
+        if (StringUtils.hasText(keyword) && roleFilter != null) {
+            users = userRepository.searchByKeywordAndRole(keyword, roleFilter, pageable);
+        } else if (StringUtils.hasText(keyword)) {
+            users = userRepository.searchByKeyword(keyword, pageable);
+        } else if (roleFilter != null) {
+            users = userRepository.findByRole(roleFilter, pageable);
+        } else {
+            users = userRepository.findAll(pageable);
+        }
+
+        Page<Map<String, Object>> result = users.map(this::toUserMap);
+        return ApiResult.ok(result);
+    }
+
+    @PutMapping("/users/{id}/role")
+    public ApiResult<Void> updateRole(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
+
+        String newRole = body.get("role");
+        if (newRole == null) {
+            throw new IllegalArgumentException("角色不能为空");
+        }
+
+        try {
+            user.setRole(User.Role.valueOf(newRole.toUpperCase()));
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("无效角色: " + newRole);
+        }
+
+        userRepository.save(user);
+        return ApiResult.ok("角色已更新", null);
+    }
+
+    @PutMapping("/users/{id}/status")
+    public ApiResult<Void> updateStatus(@PathVariable Long id, @RequestBody Map<String, Boolean> body) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
+
+        Boolean enabled = body.get("enabled");
+        if (enabled == null) {
+            throw new IllegalArgumentException("状态不能为空");
+        }
+
+        user.setEnabled(enabled);
+        userRepository.save(user);
+        return ApiResult.ok(enabled ? "用户已启用" : "用户已禁用", null);
+    }
+
+    @PostMapping("/users/{id}/reset-password")
+    public ApiResult<Map<String, String>> resetPassword(@PathVariable Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
+
+        // 生成临时密码
+        String tempPassword = generateTempPassword();
+        user.setPassword(passwordEncoder.encode(tempPassword));
+        userRepository.save(user);
+
+        return ApiResult.ok("密码已重置", Map.of("tempPassword", tempPassword));
+    }
+
+    @DeleteMapping("/users/{id}")
+    public ApiResult<Void> deleteUser(@PathVariable Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
+
+        if (user.getRole() == User.Role.ADMIN) {
+            long adminCount = userRepository.countByRole(User.Role.ADMIN);
+            if (adminCount <= 1) {
+                throw new IllegalArgumentException("不能删除最后一个管理员");
+            }
+        }
+
+        userRepository.deleteById(id);
+        return ApiResult.ok("用户已删除", null);
+    }
+
+    // ==================== 工具方法 ====================
+
+    private Map<String, Object> toUserMap(User user) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("id", user.getId());
+        map.put("username", user.getUsername());
+        map.put("email", user.getEmail());
+        map.put("role", user.getRole().name());
+        map.put("enabled", user.isEnabled());
+        map.put("lastLoginAt", user.getLastLoginAt() != null ? user.getLastLoginAt().toString() : null);
+        map.put("createdAt", user.getCreatedAt().toString());
+        return map;
+    }
+
+    private User.Role parseRole(String role) {
+        if (!StringUtils.hasText(role) || "ALL".equalsIgnoreCase(role)) return null;
+        try {
+            return User.Role.valueOf(role.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    private String generateTempPassword() {
+        String chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+        StringBuilder sb = new StringBuilder(12);
+        var random = new java.security.SecureRandom();
+        for (int i = 0; i < 12; i++) {
+            sb.append(chars.charAt(random.nextInt(chars.length())));
+        }
+        return sb.toString();
     }
 }

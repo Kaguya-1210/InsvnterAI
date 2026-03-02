@@ -46,3 +46,39 @@ export const authApi = {
     logout: () => api.post('/auth/logout'),
     me: () => api.get('/auth/me') as Promise<{ code: number; data: { username: string; email: string; role: string; createdAt: string } }>,
 }
+
+// ========== Admin API ==========
+export const adminApi = {
+    // 仪表盘
+    getDashboard: () =>
+        api.get('/admin/dashboard') as Promise<{
+            code: number; data: {
+                totalUsers: number; todayNewUsers: number; activeUsers: number;
+                disabledUsers: number; adminCount: number; userCount: number
+            }
+        }>,
+
+    // 用户管理
+    getUsers: (params: { page?: number; size?: number; keyword?: string; role?: string }) =>
+        api.get('/admin/users', { params }) as Promise<{
+            code: number; data: {
+                content: Array<{
+                    id: number; username: string; email: string; role: string;
+                    enabled: boolean; lastLoginAt: string | null; createdAt: string
+                }>;
+                totalElements: number; totalPages: number; number: number; size: number
+            }
+        }>,
+
+    updateUserRole: (id: number, role: string) =>
+        api.put(`/admin/users/${id}/role`, { role }) as Promise<{ code: number; message: string }>,
+
+    updateUserStatus: (id: number, enabled: boolean) =>
+        api.put(`/admin/users/${id}/status`, { enabled }) as Promise<{ code: number; message: string }>,
+
+    resetUserPassword: (id: number) =>
+        api.post(`/admin/users/${id}/reset-password`) as Promise<{ code: number; data: { tempPassword: string } }>,
+
+    deleteUser: (id: number) =>
+        api.delete(`/admin/users/${id}`) as Promise<{ code: number; message: string }>,
+}
