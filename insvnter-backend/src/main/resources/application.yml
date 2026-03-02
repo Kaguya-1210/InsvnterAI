@@ -44,7 +44,7 @@ app:
 
 # Kaptcha
 kaptcha:
-  border: false
+  border: "no"
   text-producer-char-length: 4
   text-producer-font-size: 32
   image-width: 120
