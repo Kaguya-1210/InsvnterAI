@@ -19,6 +19,7 @@ public class JwtTokenProvider {
     private final StringRedisTemplate redisTemplate;
 
     private static final String BLACKLIST_PREFIX = "jwt:blacklist:";
+    private static final String USER_BLACKLIST_PREFIX = "jwt:user-blacklist:";
 
     public JwtTokenProvider(
             @Value("${app.jwt.secret}") String secret,

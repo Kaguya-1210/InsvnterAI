@@ -20,13 +20,18 @@ api.interceptors.request.use(
     (error) => Promise.reject(error),
 )
 
-// 响应拦截器：提取 data, 处理 401
+// 响应拦截器：提取 data, 处理 401/403
 api.interceptors.response.use(
     (response) => response.data,
     (error) => {
-        if (error.response?.status === 401) {
+        const status = error.response?.status
+        if (status === 401 || status === 403) {
             localStorage.removeItem('insvnter_token')
             localStorage.removeItem('insvnter_user')
+            // 仅当用户在管理后台时跳转首页
+            if (window.location.pathname.startsWith('/console')) {
+                window.location.href = '/'
+            }
         }
         // 提取后端错误消息
         const message = error.response?.data?.message || error.message || '请求失败'
