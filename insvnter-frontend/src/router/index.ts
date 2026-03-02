@@ -28,6 +28,11 @@ const router = createRouter({
           name: 'system-settings',
           component: () => import('../views/admin/SystemSettingsView.vue'),
         },
+        {
+          path: 'profile',
+          name: 'profile-settings',
+          component: () => import('../views/admin/ProfileSettingsView.vue'),
+        },
       ],
     },
   ],

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { RouterView } from 'vue-router'
-import { NConfigProvider, NMessageProvider, darkTheme, NNotificationProvider } from 'naive-ui'
+import { NConfigProvider, NMessageProvider, NDialogProvider, darkTheme, NNotificationProvider } from 'naive-ui'
 import { useThemeStore } from '@/stores/theme'
 
 const themeStore = useThemeStore()
@@ -10,11 +10,13 @@ const naiveTheme = computed(() => (themeStore.isDark ? darkTheme : null))
 
 <template>
   <NConfigProvider :theme="naiveTheme">
-    <NMessageProvider>
-      <NNotificationProvider>
-        <RouterView />
-      </NNotificationProvider>
-    </NMessageProvider>
+    <NDialogProvider>
+      <NMessageProvider>
+        <NNotificationProvider>
+          <RouterView />
+        </NNotificationProvider>
+      </NMessageProvider>
+    </NDialogProvider>
   </NConfigProvider>
 </template>
 

@@ -59,8 +59,12 @@ public class JwtTokenProvider {
 
     public boolean validateToken(String token) {
         try {
-            parseClaims(token);
-            return !isBlacklisted(token);
+            Claims claims = parseClaims(token);
+            if (isBlacklisted(token)) return false;
+            // 检查用户级黑名单（用户被删除或禁用时生效）
+            String username = claims.getSubject();
+            if (Boolean.TRUE.equals(redisTemplate.hasKey(USER_BLACKLIST_PREFIX + username))) return false;
+            return true;
         } catch (JwtException | IllegalArgumentException e) {
             return false;
         }
@@ -76,6 +80,13 @@ public class JwtTokenProvider {
             }
         } catch (JwtException ignored) {
         }
+    }
+
+    /** 按用户名拉黑，所有该用户的 JWT 立即失效 */
+    public void blacklistByUsername(String username) {
+        // 黑名单有效期 = JWT 最大有效期，确保所有已签发的 token 都过期
+        redisTemplate.opsForValue().set(
+                USER_BLACKLIST_PREFIX + username, "1", expirationMs, TimeUnit.MILLISECONDS);
     }
 
     private boolean isBlacklisted(String token) {

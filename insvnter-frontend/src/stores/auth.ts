@@ -55,5 +55,9 @@ export const useAuthStore = defineStore('auth', () => {
         localStorage.removeItem('insvnter_user')
     }
 
-    return { user, token, isLoggedIn, login, register, logout }
+    function updateSession(data: { token: string; username: string; email: string; role: string }) {
+        saveSession(data)
+    }
+
+    return { user, token, isLoggedIn, login, register, logout, updateSession }
 })

@@ -3,10 +3,12 @@ package com.insvnter.ai.controller;
 import com.insvnter.ai.model.dto.ApiResult;
 import com.insvnter.ai.model.entity.User;
 import com.insvnter.ai.repository.UserRepository;
+import com.insvnter.ai.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
@@ -23,6 +25,7 @@ public class AdminController {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtTokenProvider jwtTokenProvider;
 
     // ==================== 仪表盘 ====================
 
@@ -70,9 +73,14 @@ public class AdminController {
     }
 
     @PutMapping("/users/{id}/role")
-    public ApiResult<Void> updateRole(@PathVariable Long id, @RequestBody Map<String, String> body) {
-        User user = userRepository.findById(id)
+    public ApiResult<Void> updateRole(@PathVariable Long id,
+                                       @RequestBody Map<String, String> body,
+                                       Authentication authentication) {
+        User target = userRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
+
+        // 禁止修改自己的角色
+        assertNotSelf(authentication, target, "不能修改自己的角色");
 
         String newRole = body.get("role");
         if (newRole == null) {
@@ -80,27 +88,32 @@ public class AdminController {
         }
 
         try {
-            user.setRole(User.Role.valueOf(newRole.toUpperCase()));
+            target.setRole(User.Role.valueOf(newRole.toUpperCase()));
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("无效角色: " + newRole);
         }
 
-        userRepository.save(user);
+        userRepository.save(target);
         return ApiResult.ok("角色已更新", null);
     }
 
     @PutMapping("/users/{id}/status")
-    public ApiResult<Void> updateStatus(@PathVariable Long id, @RequestBody Map<String, Boolean> body) {
-        User user = userRepository.findById(id)
+    public ApiResult<Void> updateStatus(@PathVariable Long id,
+                                         @RequestBody Map<String, Boolean> body,
+                                         Authentication authentication) {
+        User target = userRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
+
+        // 禁止禁用自己
+        assertNotSelf(authentication, target, "不能禁用自己的账户");
 
         Boolean enabled = body.get("enabled");
         if (enabled == null) {
             throw new IllegalArgumentException("状态不能为空");
         }
 
-        user.setEnabled(enabled);
-        userRepository.save(user);
+        target.setEnabled(enabled);
+        userRepository.save(target);
         return ApiResult.ok(enabled ? "用户已启用" : "用户已禁用", null);
     }
 
@@ -109,7 +122,6 @@ public class AdminController {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
 
-        // 生成临时密码
         String tempPassword = generateTempPassword();
         user.setPassword(passwordEncoder.encode(tempPassword));
         userRepository.save(user);
@@ -118,11 +130,14 @@ public class AdminController {
     }
 
     @DeleteMapping("/users/{id}")
-    public ApiResult<Void> deleteUser(@PathVariable Long id) {
-        User user = userRepository.findById(id)
+    public ApiResult<Void> deleteUser(@PathVariable Long id, Authentication authentication) {
+        User target = userRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
 
-        if (user.getRole() == User.Role.ADMIN) {
+        // 禁止删除自己
+        assertNotSelf(authentication, target, "不能删除自己的账户，请联系其他管理员");
+
+        if (target.getRole() == User.Role.ADMIN) {
             long adminCount = userRepository.countByRole(User.Role.ADMIN);
             if (adminCount <= 1) {
                 throw new IllegalArgumentException("不能删除最后一个管理员");
@@ -130,10 +145,20 @@ public class AdminController {
         }
 
         userRepository.deleteById(id);
+        // 被删除用户的 JWT 可能仍然有效，加入黑名单
+        jwtTokenProvider.blacklistByUsername(target.getUsername());
+
         return ApiResult.ok("用户已删除", null);
     }
 
     // ==================== 工具方法 ====================
+
+    /** 检查操作目标是否为当前登录用户 */
+    private void assertNotSelf(Authentication auth, User target, String message) {
+        if (auth.getName().equals(target.getUsername())) {
+            throw new IllegalArgumentException(message);
+        }
+    }
 
     private Map<String, Object> toUserMap(User user) {
         Map<String, Object> map = new LinkedHashMap<>();

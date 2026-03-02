@@ -20,6 +20,7 @@ import {
   HomeOutline,
   PeopleOutline,
   SettingsOutline,
+  PersonOutline,
   LogOutOutline,
   PersonCircleOutline,
 } from '@vicons/ionicons5'
@@ -50,6 +51,11 @@ const menuOptions: MenuOption[] = [
     key: 'system-settings',
     icon: renderIcon(SettingsOutline),
   },
+  {
+    label: '个人设置',
+    key: 'profile-settings',
+    icon: renderIcon(PersonOutline),
+  },
 ]
 
 const activeKey = computed(() => {
@@ -67,17 +73,23 @@ function handleMenuUpdate(key: string) {
     case 'system-settings':
       router.push('/console/manage/settings')
       break
+    case 'profile-settings':
+      router.push('/console/manage/profile')
+      break
   }
 }
 
 const userMenuOptions = [
+  { label: '个人设置', key: 'profile', icon: renderIcon(PersonOutline) },
   { label: '返回首页', key: 'home', icon: renderIcon(HomeOutline) },
   { type: 'divider' as const, key: 'd1' },
   { label: '退出登录', key: 'logout', icon: renderIcon(LogOutOutline) },
 ]
 
 async function handleUserMenuSelect(key: string) {
-  if (key === 'home') {
+  if (key === 'profile') {
+    router.push('/console/manage/profile')
+  } else if (key === 'home') {
     router.push('/')
   } else if (key === 'logout') {
     await auth.logout()

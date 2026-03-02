@@ -45,6 +45,12 @@ export const authApi = {
         api.post('/auth/register', data) as Promise<{ code: number; message: string; data: { token: string; username: string; email: string; role: string } }>,
     logout: () => api.post('/auth/logout'),
     me: () => api.get('/auth/me') as Promise<{ code: number; data: { username: string; email: string; role: string; createdAt: string } }>,
+
+    // 个人信息修改
+    updateUsername: (username: string) =>
+        api.put('/auth/profile/username', { username }) as Promise<{ code: number; message: string; data: { token: string; username: string; email: string; role: string } }>,
+    updatePassword: (oldPassword: string, newPassword: string) =>
+        api.put('/auth/profile/password', { oldPassword, newPassword }) as Promise<{ code: number; message: string }>,
 }
 
 // ========== Admin API ==========
