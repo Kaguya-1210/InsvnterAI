@@ -87,11 +87,26 @@ public class AdminController {
 
         String newRole = body.get("role");
         if (newRole == null) throw new IllegalArgumentException("角色不能为空");
+
+        User.Role parsedRole;
         try {
-            target.setRole(User.Role.valueOf(newRole.toUpperCase()));
+            parsedRole = User.Role.valueOf(newRole.toUpperCase());
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("无效角色: " + newRole);
         }
+
+        // 单管理员限制
+        if (parsedRole == User.Role.ADMIN) {
+            long adminCount = userRepository.countByRole(User.Role.ADMIN);
+            if (adminCount >= 1) throw new IllegalArgumentException("系统仅允许一个管理员");
+        }
+        // 不能降级最后一个管理员
+        if (target.getRole() == User.Role.ADMIN && parsedRole != User.Role.ADMIN) {
+            long adminCount = userRepository.countByRole(User.Role.ADMIN);
+            if (adminCount <= 1) throw new IllegalArgumentException("不能降级唯一的管理员");
+        }
+
+        target.setRole(parsedRole);
         userRepository.save(target);
         return ApiResult.ok("角色已更新", null);
     }
