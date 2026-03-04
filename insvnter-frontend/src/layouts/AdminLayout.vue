@@ -23,6 +23,8 @@ import {
   PersonOutline,
   LogOutOutline,
   PersonCircleOutline,
+  MailOutline,
+  ColorPaletteOutline,
 } from '@vicons/ionicons5'
 import { useAuthStore } from '@/stores/auth'
 
@@ -47,6 +49,16 @@ const menuOptions: MenuOption[] = [
     icon: renderIcon(PeopleOutline),
   },
   {
+    label: '邮件配置',
+    key: 'email-config',
+    icon: renderIcon(MailOutline),
+  },
+  {
+    label: '邮件模板',
+    key: 'email-templates',
+    icon: renderIcon(ColorPaletteOutline),
+  },
+  {
     label: '系统设置',
     key: 'system-settings',
     icon: renderIcon(SettingsOutline),
@@ -69,6 +81,12 @@ function handleMenuUpdate(key: string) {
       break
     case 'user-manage':
       router.push('/console/manage/users')
+      break
+    case 'email-config':
+      router.push('/console/manage/email-config')
+      break
+    case 'email-templates':
+      router.push('/console/manage/email-templates')
       break
     case 'system-settings':
       router.push('/console/manage/settings')

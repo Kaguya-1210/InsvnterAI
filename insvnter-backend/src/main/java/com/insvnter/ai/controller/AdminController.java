@@ -1,11 +1,13 @@
 package com.insvnter.ai.controller;
 
 import com.insvnter.ai.model.dto.ApiResult;
+import com.insvnter.ai.model.entity.SystemConfig;
 import com.insvnter.ai.model.entity.User;
+import com.insvnter.ai.repository.SystemConfigRepository;
 import com.insvnter.ai.repository.UserRepository;
 import com.insvnter.ai.security.JwtTokenProvider;
+import com.insvnter.ai.service.EmailService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -27,21 +29,8 @@ public class AdminController {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
-
-    @Value("${spring.mail.host:}")
-    private String mailHost;
-
-    @Value("${spring.mail.port:0}")
-    private int mailPort;
-
-    @Value("${spring.mail.username:}")
-    private String mailUsername;
-
-    @Value("${app.mail.from:}")
-    private String mailFrom;
-
-    @Value("${app.mail.name:}")
-    private String mailFromName;
+    private final SystemConfigRepository systemConfigRepository;
+    private final EmailService emailService;
 
     // ==================== 仪表盘 ====================
 
@@ -94,21 +83,15 @@ public class AdminController {
                                        Authentication authentication) {
         User target = userRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
-
-        // 禁止修改自己的角色
         assertNotSelf(authentication, target, "不能修改自己的角色");
 
         String newRole = body.get("role");
-        if (newRole == null) {
-            throw new IllegalArgumentException("角色不能为空");
-        }
-
+        if (newRole == null) throw new IllegalArgumentException("角色不能为空");
         try {
             target.setRole(User.Role.valueOf(newRole.toUpperCase()));
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("无效角色: " + newRole);
         }
-
         userRepository.save(target);
         return ApiResult.ok("角色已更新", null);
     }
@@ -119,15 +102,10 @@ public class AdminController {
                                          Authentication authentication) {
         User target = userRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
-
-        // 禁止禁用自己
         assertNotSelf(authentication, target, "不能禁用自己的账户");
 
         Boolean enabled = body.get("enabled");
-        if (enabled == null) {
-            throw new IllegalArgumentException("状态不能为空");
-        }
-
+        if (enabled == null) throw new IllegalArgumentException("状态不能为空");
         target.setEnabled(enabled);
         userRepository.save(target);
         return ApiResult.ok(enabled ? "用户已启用" : "用户已禁用", null);
@@ -137,11 +115,9 @@ public class AdminController {
     public ApiResult<Map<String, String>> resetPassword(@PathVariable Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
-
         String tempPassword = generateTempPassword();
         user.setPassword(passwordEncoder.encode(tempPassword));
         userRepository.save(user);
-
         return ApiResult.ok("密码已重置", Map.of("tempPassword", tempPassword));
     }
 
@@ -149,31 +125,78 @@ public class AdminController {
     public ApiResult<Void> deleteUser(@PathVariable Long id, Authentication authentication) {
         User target = userRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
-
-        // 禁止删除自己
         assertNotSelf(authentication, target, "不能删除自己的账户，请联系其他管理员");
 
         if (target.getRole() == User.Role.ADMIN) {
             long adminCount = userRepository.countByRole(User.Role.ADMIN);
-            if (adminCount <= 1) {
-                throw new IllegalArgumentException("不能删除最后一个管理员");
-            }
+            if (adminCount <= 1) throw new IllegalArgumentException("不能删除最后一个管理员");
+        }
+        userRepository.deleteById(id);
+        jwtTokenProvider.blacklistByUsername(target.getUsername());
+        return ApiResult.ok("用户已删除", null);
+    }
+
+    // ==================== 邮件配置 ====================
+
+    @GetMapping("/email-config")
+    public ApiResult<Map<String, Object>> getEmailConfig() {
+        Map<String, Object> result = new LinkedHashMap<>();
+        var opt = systemConfigRepository.findByGroup("email");
+        if (opt.isPresent()) {
+            Map<String, String> v = opt.get().getValues();
+            result.put("smtpHost", v.getOrDefault("smtpHost", ""));
+            result.put("smtpPort", v.getOrDefault("smtpPort", "587"));
+            result.put("smtpUsername", v.getOrDefault("smtpUsername", ""));
+            result.put("smtpPassword", maskPassword(v.getOrDefault("smtpPassword", "")));
+            result.put("fromAddress", v.getOrDefault("fromAddress", ""));
+            result.put("fromName", v.getOrDefault("fromName", ""));
+            result.put("configured", true);
+        } else {
+            result.put("smtpHost", "");
+            result.put("smtpPort", "587");
+            result.put("smtpUsername", "");
+            result.put("smtpPassword", "");
+            result.put("fromAddress", "");
+            result.put("fromName", "");
+            result.put("configured", false);
+        }
+        return ApiResult.ok(result);
+    }
+
+    @PutMapping("/email-config")
+    public ApiResult<Void> saveEmailConfig(@RequestBody Map<String, String> body) {
+        SystemConfig config = systemConfigRepository.findByGroup("email")
+                .orElseGet(() -> {
+                    SystemConfig c = new SystemConfig();
+                    c.setGroup("email");
+                    return c;
+                });
+
+        Map<String, String> values = new LinkedHashMap<>(body);
+        if (config.getValues() != null && values.get("smtpPassword") != null
+                && values.get("smtpPassword").contains("****")) {
+            values.put("smtpPassword", config.getValues().getOrDefault("smtpPassword", ""));
         }
 
-        userRepository.deleteById(id);
-        // 被删除用户的 JWT 可能仍然有效，加入黑名单
-        jwtTokenProvider.blacklistByUsername(target.getUsername());
+        config.setValues(values);
+        config.setUpdatedAt(LocalDateTime.now());
+        systemConfigRepository.save(config);
 
-        return ApiResult.ok("用户已删除", null);
+        return ApiResult.ok("邮件配置已保存", null);
+    }
+
+    @PostMapping("/email-config/test")
+    public ApiResult<Void> testEmailConfig(@RequestBody Map<String, String> body) {
+        String toEmail = body.get("email");
+        if (!StringUtils.hasText(toEmail)) throw new IllegalArgumentException("请填写收件邮箱");
+        emailService.sendTestEmail(toEmail);
+        return ApiResult.ok("测试邮件已发送", null);
     }
 
     // ==================== 工具方法 ====================
 
-    /** 检查操作目标是否为当前登录用户 */
     private void assertNotSelf(Authentication auth, User target, String message) {
-        if (auth.getName().equals(target.getUsername())) {
-            throw new IllegalArgumentException(message);
-        }
+        if (auth.getName().equals(target.getUsername())) throw new IllegalArgumentException(message);
     }
 
     private Map<String, Object> toUserMap(User user) {
@@ -190,41 +213,20 @@ public class AdminController {
 
     private User.Role parseRole(String role) {
         if (!StringUtils.hasText(role) || "ALL".equalsIgnoreCase(role)) return null;
-        try {
-            return User.Role.valueOf(role.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            return null;
-        }
+        try { return User.Role.valueOf(role.toUpperCase()); }
+        catch (IllegalArgumentException e) { return null; }
     }
 
     private String generateTempPassword() {
         String chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
         StringBuilder sb = new StringBuilder(12);
         var random = new java.security.SecureRandom();
-        for (int i = 0; i < 12; i++) {
-            sb.append(chars.charAt(random.nextInt(chars.length())));
-        }
+        for (int i = 0; i < 12; i++) sb.append(chars.charAt(random.nextInt(chars.length())));
         return sb.toString();
     }
 
-    // ==================== 邮件配置 ====================
-
-    @GetMapping("/email-config")
-    public ApiResult<Map<String, Object>> emailConfig() {
-        Map<String, Object> config = new LinkedHashMap<>();
-        config.put("smtpHost", mailHost);
-        config.put("smtpPort", mailPort);
-        config.put("smtpUsername", maskEmail(mailUsername));
-        config.put("fromAddress", mailFrom);
-        config.put("fromName", mailFromName);
-        config.put("configured", StringUtils.hasText(mailHost) && StringUtils.hasText(mailUsername));
-        return ApiResult.ok(config);
-    }
-
-    private String maskEmail(String email) {
-        if (!StringUtils.hasText(email)) return "";
-        int at = email.indexOf('@');
-        if (at <= 2) return "***" + email.substring(at);
-        return email.charAt(0) + "***" + email.substring(at);
+    private String maskPassword(String pwd) {
+        if (!StringUtils.hasText(pwd)) return "";
+        return pwd.charAt(0) + "****" + pwd.charAt(pwd.length() - 1);
     }
 }

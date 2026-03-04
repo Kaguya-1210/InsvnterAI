@@ -1,14 +1,21 @@
 package com.insvnter.ai.service;
 
+import com.insvnter.ai.model.entity.EmailTemplate;
+import com.insvnter.ai.model.entity.SystemConfig;
+import com.insvnter.ai.repository.SystemConfigRepository;
+import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.JavaMailSenderImpl;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.security.SecureRandom;
+import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -16,14 +23,8 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class EmailService {
 
-    private final JavaMailSender mailSender;
     private final StringRedisTemplate redisTemplate;
-
-    @Value("${app.mail.from:noreply@insvnter.ai}")
-    private String fromAddress;
-
-    @Value("${app.mail.name:InsvnterAI}")
-    private String fromName;
+    private final SystemConfigRepository systemConfigRepository;
 
     private static final String EMAIL_CODE_PREFIX = "email:code:";
     private static final String EMAIL_COOLDOWN_PREFIX = "email:cooldown:";
@@ -32,49 +33,160 @@ public class EmailService {
     private static final int COOLDOWN_SECONDS = 60;
 
     /**
-     * 发送邮箱验证码
+     * 动态创建 JavaMailSender — 从 MongoDB 读取 SMTP 配置
+     */
+    private JavaMailSender createMailSender() {
+        SystemConfig config = systemConfigRepository.findByGroup("email")
+                .orElseThrow(() -> new IllegalArgumentException("邮件服务未配置，请在管理后台设置 SMTP"));
+
+        Map<String, String> v = config.getValues();
+        String host = v.get("smtpHost");
+        String port = v.get("smtpPort");
+        String username = v.get("smtpUsername");
+        String password = v.get("smtpPassword");
+
+        if (!StringUtils.hasText(host) || !StringUtils.hasText(username)) {
+            throw new IllegalArgumentException("SMTP 配置不完整，请在管理后台补充");
+        }
+
+        JavaMailSenderImpl sender = new JavaMailSenderImpl();
+        sender.setHost(host);
+        sender.setPort(Integer.parseInt(port != null ? port : "587"));
+        sender.setUsername(username);
+        sender.setPassword(password);
+        sender.setDefaultEncoding("UTF-8");
+
+        Properties props = sender.getJavaMailProperties();
+        props.put("mail.smtp.auth", "true");
+        props.put("mail.smtp.starttls.enable", "true");
+        props.put("mail.smtp.starttls.required", "true");
+        props.put("mail.smtp.connectiontimeout", "5000");
+        props.put("mail.smtp.timeout", "5000");
+        props.put("mail.smtp.writetimeout", "5000");
+
+        return sender;
+    }
+
+    /**
+     * 获取发件人信息
+     */
+    private String[] getFromInfo() {
+        SystemConfig config = systemConfigRepository.findByGroup("email")
+                .orElseThrow(() -> new IllegalArgumentException("邮件服务未配置"));
+        Map<String, String> v = config.getValues();
+        return new String[]{
+                v.getOrDefault("fromAddress", v.get("smtpUsername")),
+                v.getOrDefault("fromName", "InsvnterAI")
+        };
+    }
+
+    /**
+     * 发送验证码（纯文字）
      */
     public void sendVerificationCode(String email) {
-        // 检查冷却时间（60秒内不允许重发）
         String cooldownKey = EMAIL_COOLDOWN_PREFIX + email;
         if (Boolean.TRUE.equals(redisTemplate.hasKey(cooldownKey))) {
             throw new IllegalArgumentException("验证码发送过于频繁，请60秒后重试");
         }
 
-        // 生成6位验证码
         String code = generateCode();
-
-        // 存入Redis（5分钟TTL）
         String codeKey = EMAIL_CODE_PREFIX + email;
         redisTemplate.opsForValue().set(codeKey, code, CODE_TTL_MINUTES, TimeUnit.MINUTES);
-
-        // 设置冷却标记
         redisTemplate.opsForValue().set(cooldownKey, "1", COOLDOWN_SECONDS, TimeUnit.SECONDS);
 
-        // 发送邮件
         try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(fromName + " <" + fromAddress + ">");
-            message.setTo(email);
-            message.setSubject("InsvnterAI 邮箱验证码");
-            message.setText("您的验证码是: " + code + "\n\n"
-                    + "验证码有效期为 " + CODE_TTL_MINUTES + " 分钟，请尽快使用。\n"
-                    + "如果这不是您的操作，请忽略此邮件。\n\n"
-                    + "—— InsvnterAI");
-            mailSender.send(message);
+            JavaMailSender sender = createMailSender();
+            String[] from = getFromInfo();
+
+            MimeMessage mimeMessage = sender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
+            helper.setFrom(from[1] + " <" + from[0] + ">");
+            helper.setTo(email);
+            helper.setSubject("InsvnterAI 邮箱验证码");
+            helper.setText("您的验证码是: " + code + "\n\n"
+                    + "验证码有效期为 " + CODE_TTL_MINUTES + " 分钟。\n"
+                    + "如果这不是您的操作，请忽略此邮件。\n\n—— InsvnterAI");
+
+            sender.send(mimeMessage);
             log.info("Verification code sent to {}", email);
+        } catch (IllegalArgumentException e) {
+            redisTemplate.delete(codeKey);
+            redisTemplate.delete(cooldownKey);
+            throw e;
         } catch (Exception e) {
-            // 发送失败，清除code和冷却
             redisTemplate.delete(codeKey);
             redisTemplate.delete(cooldownKey);
             log.error("Failed to send email to {}", email, e);
-            throw new IllegalArgumentException("邮件发送失败，请检查邮箱地址或稍后重试");
+            throw new IllegalArgumentException("邮件发送失败: " + e.getMessage());
         }
     }
 
     /**
-     * 验证邮箱验证码
+     * 使用 HTML 模板发送验证码
      */
+    public void sendVerificationCodeWithTemplate(String email, EmailTemplate template) {
+        String cooldownKey = EMAIL_COOLDOWN_PREFIX + email;
+        if (Boolean.TRUE.equals(redisTemplate.hasKey(cooldownKey))) {
+            throw new IllegalArgumentException("验证码发送过于频繁，请60秒后重试");
+        }
+
+        String code = generateCode();
+        String codeKey = EMAIL_CODE_PREFIX + email;
+        redisTemplate.opsForValue().set(codeKey, code, CODE_TTL_MINUTES, TimeUnit.MINUTES);
+        redisTemplate.opsForValue().set(cooldownKey, "1", COOLDOWN_SECONDS, TimeUnit.SECONDS);
+
+        try {
+            JavaMailSender sender = createMailSender();
+            String[] from = getFromInfo();
+
+            String html = template.getHtmlContent()
+                    .replace("{{code}}", code)
+                    .replace("{{minutes}}", String.valueOf(CODE_TTL_MINUTES));
+
+            MimeMessage mimeMessage = sender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
+            helper.setFrom(from[1] + " <" + from[0] + ">");
+            helper.setTo(email);
+            helper.setSubject("InsvnterAI 邮箱验证码");
+            helper.setText(html, true);
+
+            sender.send(mimeMessage);
+            log.info("Verification code (template: {}) sent to {}", template.getName(), email);
+        } catch (IllegalArgumentException e) {
+            redisTemplate.delete(codeKey);
+            redisTemplate.delete(cooldownKey);
+            throw e;
+        } catch (Exception e) {
+            redisTemplate.delete(codeKey);
+            redisTemplate.delete(cooldownKey);
+            log.error("Failed to send email to {}", email, e);
+            throw new IllegalArgumentException("邮件发送失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 发送测试邮件
+     */
+    public void sendTestEmail(String toEmail) {
+        try {
+            JavaMailSender sender = createMailSender();
+            String[] from = getFromInfo();
+
+            MimeMessage mimeMessage = sender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
+            helper.setFrom(from[1] + " <" + from[0] + ">");
+            helper.setTo(toEmail);
+            helper.setSubject("InsvnterAI 邮件测试");
+            helper.setText("<h2>✅ 邮件配置成功！</h2><p>SMTP 服务已正常工作。</p>", true);
+
+            sender.send(mimeMessage);
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalArgumentException("测试邮件发送失败: " + e.getMessage());
+        }
+    }
+
     public void validateEmailCode(String email, String code) {
         String key = EMAIL_CODE_PREFIX + email;
         String stored = redisTemplate.opsForValue().get(key);
@@ -82,11 +194,9 @@ public class EmailService {
             throw new IllegalArgumentException("邮箱验证码已过期，请重新获取");
         }
         if (!stored.equals(code)) {
-            // 验证失败，立即删除验证码（防暴力破解）
             redisTemplate.delete(key);
             throw new IllegalArgumentException("邮箱验证码错误");
         }
-        // 验证成功，删除
         redisTemplate.delete(key);
     }
 
