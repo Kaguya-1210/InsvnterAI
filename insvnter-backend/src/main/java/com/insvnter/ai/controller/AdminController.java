@@ -151,6 +151,7 @@ public class AdminController {
             result.put("fromAddress", v.getOrDefault("fromAddress", ""));
             result.put("fromName", v.getOrDefault("fromName", ""));
             result.put("activeTemplateId", v.getOrDefault("activeTemplateId", ""));
+            result.put("encryption", v.getOrDefault("encryption", "starttls"));
             result.put("configured", true);
         } else {
             result.put("smtpHost", "");
@@ -160,6 +161,7 @@ public class AdminController {
             result.put("fromAddress", "");
             result.put("fromName", "");
             result.put("activeTemplateId", "");
+            result.put("encryption", "starttls");
             result.put("configured", false);
         }
         return ApiResult.ok(result);

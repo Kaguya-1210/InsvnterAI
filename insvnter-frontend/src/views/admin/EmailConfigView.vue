@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue'
 import {
   NCard, NForm, NFormItem, NInput, NButton, NSpace, NIcon, NTag, NDivider,
-  NSpin, NSelect, useMessage,
+  NSpin, NSelect, NText, useMessage,
 } from 'naive-ui'
 import { MailOutline, SendOutline, SaveOutline, ColorPaletteOutline } from '@vicons/ionicons5'
 import { adminApi } from '@/api'
@@ -19,10 +19,17 @@ const form = ref({
   smtpPassword: '',
   fromAddress: '',
   fromName: '',
-  activeTemplateId: '',
+  encryption: 'starttls',
+  activeTemplateId: null as string | null,
 })
 const configured = ref(false)
 const testEmail = ref('')
+
+const encryptionOptions = [
+  { label: 'SSL/TLS', value: 'ssl' },
+  { label: 'STARTTLS', value: 'starttls' },
+  { label: '无加密', value: 'none' },
+]
 
 // 模板选项
 const templateOptions = ref<{ label: string; value: string }[]>([])
@@ -33,6 +40,9 @@ onMounted(async () => {
       adminApi.getEmailConfig(),
       adminApi.getEmailTemplates(),
     ])
+
+    templateOptions.value = templatesRes.data.map((t: any) => ({ label: t.name, value: t.id }))
+
     const d = configRes.data
     form.value = {
       smtpHost: d.smtpHost || '',
@@ -41,14 +51,10 @@ onMounted(async () => {
       smtpPassword: d.smtpPassword || '',
       fromAddress: d.fromAddress || '',
       fromName: d.fromName || '',
-      activeTemplateId: d.activeTemplateId || '',
+      encryption: d.encryption || 'starttls',
+      activeTemplateId: d.activeTemplateId || null,
     }
     configured.value = d.configured
-
-    templateOptions.value = [
-      { label: '不使用模板（纯文字）', value: '' },
-      ...templatesRes.data.map((t: any) => ({ label: t.name, value: t.id })),
-    ]
   } catch { /* ignore */ }
   loading.value = false
 })
@@ -60,7 +66,16 @@ async function handleSave() {
   }
   saving.value = true
   try {
-    await adminApi.saveEmailConfig(form.value)
+    await adminApi.saveEmailConfig({
+      smtpHost: form.value.smtpHost,
+      smtpPort: form.value.smtpPort,
+      smtpUsername: form.value.smtpUsername,
+      smtpPassword: form.value.smtpPassword,
+      fromAddress: form.value.fromAddress,
+      fromName: form.value.fromName,
+      encryption: form.value.encryption,
+      activeTemplateId: form.value.activeTemplateId || '',
+    })
     configured.value = true
     message.success('邮件配置已保存')
   } catch (e: any) {
@@ -108,6 +123,9 @@ async function handleTest() {
           <NFormItem label="端口">
             <NInput v-model:value="form.smtpPort" placeholder="587" style="width: 120px;" autocomplete="off" />
           </NFormItem>
+          <NFormItem label="加密方式">
+            <NSelect v-model:value="form.encryption" :options="encryptionOptions" style="width: 260px;" />
+          </NFormItem>
           <NFormItem label="账号">
             <NInput v-model:value="form.smtpUsername" placeholder="your-email@qq.com" autocomplete="off" />
           </NFormItem>
@@ -141,7 +159,7 @@ async function handleTest() {
           <NSelect
             v-model:value="form.activeTemplateId"
             :options="templateOptions"
-            placeholder="选择邮件模板"
+            placeholder="不使用模板（纯文字）"
             clearable
             style="width: 300px;"
           />

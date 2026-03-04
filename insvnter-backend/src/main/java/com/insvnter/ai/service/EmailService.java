@@ -152,11 +152,27 @@ public class EmailService {
 
         Properties props = sender.getJavaMailProperties();
         props.put("mail.smtp.auth", "true");
-        props.put("mail.smtp.starttls.enable", "true");
-        props.put("mail.smtp.starttls.required", "true");
-        props.put("mail.smtp.connectiontimeout", "5000");
-        props.put("mail.smtp.timeout", "5000");
-        props.put("mail.smtp.writetimeout", "5000");
+        props.put("mail.smtp.connectiontimeout", "15000");
+        props.put("mail.smtp.timeout", "15000");
+        props.put("mail.smtp.writetimeout", "15000");
+
+        // 加密模式: ssl (465) / starttls (587) / none (25/22)
+        String encryption = v.getOrDefault("encryption", "starttls");
+        switch (encryption) {
+            case "ssl":
+                props.put("mail.smtp.ssl.enable", "true");
+                props.put("mail.smtp.ssl.trust", "*");
+                props.put("mail.smtp.socketFactory.class", "javax.net.ssl.SSLSocketFactory");
+                props.put("mail.smtp.socketFactory.port", String.valueOf(sender.getPort()));
+                props.put("mail.smtp.socketFactory.fallback", "false");
+                break;
+            case "starttls":
+                props.put("mail.smtp.starttls.enable", "true");
+                props.put("mail.smtp.starttls.required", "true");
+                props.put("mail.smtp.ssl.trust", "*");
+                break;
+            // "none" — 不设置加密属性
+        }
 
         return sender;
     }
