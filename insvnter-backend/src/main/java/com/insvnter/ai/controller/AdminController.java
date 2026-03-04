@@ -5,6 +5,7 @@ import com.insvnter.ai.model.entity.User;
 import com.insvnter.ai.repository.UserRepository;
 import com.insvnter.ai.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -26,6 +27,21 @@ public class AdminController {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+
+    @Value("${spring.mail.host:}")
+    private String mailHost;
+
+    @Value("${spring.mail.port:0}")
+    private int mailPort;
+
+    @Value("${spring.mail.username:}")
+    private String mailUsername;
+
+    @Value("${app.mail.from:}")
+    private String mailFrom;
+
+    @Value("${app.mail.name:}")
+    private String mailFromName;
 
     // ==================== 仪表盘 ====================
 
@@ -189,5 +205,26 @@ public class AdminController {
             sb.append(chars.charAt(random.nextInt(chars.length())));
         }
         return sb.toString();
+    }
+
+    // ==================== 邮件配置 ====================
+
+    @GetMapping("/email-config")
+    public ApiResult<Map<String, Object>> emailConfig() {
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put("smtpHost", mailHost);
+        config.put("smtpPort", mailPort);
+        config.put("smtpUsername", maskEmail(mailUsername));
+        config.put("fromAddress", mailFrom);
+        config.put("fromName", mailFromName);
+        config.put("configured", StringUtils.hasText(mailHost) && StringUtils.hasText(mailUsername));
+        return ApiResult.ok(config);
+    }
+
+    private String maskEmail(String email) {
+        if (!StringUtils.hasText(email)) return "";
+        int at = email.indexOf('@');
+        if (at <= 2) return "***" + email.substring(at);
+        return email.charAt(0) + "***" + email.substring(at);
     }
 }

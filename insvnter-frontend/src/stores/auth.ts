@@ -33,13 +33,13 @@ export const useAuthStore = defineStore('auth', () => {
         localStorage.setItem('insvnter_user', JSON.stringify(user.value))
     }
 
-    async function login(username: string, password: string, captcha: string, captchaId: string) {
-        const res = await authApi.login({ username, password, captcha, captchaId })
+    async function login(account: string, password: string, captcha: string, captchaId: string) {
+        const res = await authApi.login({ account, password, captcha, captchaId })
         saveSession(res.data)
     }
 
-    async function register(username: string, email: string, password: string, captcha: string, captchaId: string) {
-        const res = await authApi.register({ username, email, password, captcha, captchaId })
+    async function register(username: string, email: string, password: string, captcha: string, captchaId: string, emailCode: string) {
+        const res = await authApi.register({ username, email, password, captcha, captchaId, emailCode })
         saveSession(res.data)
     }
 

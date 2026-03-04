@@ -20,9 +20,12 @@ public class RegisterRequest {
     @Size(min = 6, max = 100, message = "密码长度至少6位")
     private String password;
 
-    @NotBlank(message = "验证码不能为空")
+    @NotBlank(message = "图形验证码不能为空")
     private String captcha;
 
     @NotBlank(message = "验证码ID不能为空")
     private String captchaId;
+
+    @NotBlank(message = "邮箱验证码不能为空")
+    private String emailCode;
 }

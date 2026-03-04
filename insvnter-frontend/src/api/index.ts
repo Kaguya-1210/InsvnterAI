@@ -44,9 +44,9 @@ export default api
 // ========== Auth API ==========
 export const authApi = {
     getCaptcha: () => api.get('/captcha') as Promise<{ code: number; data: { captchaId: string; image: string } }>,
-    login: (data: { username: string; password: string; captcha: string; captchaId: string }) =>
+    login: (data: { account: string; password: string; captcha: string; captchaId: string }) =>
         api.post('/auth/login', data) as Promise<{ code: number; message: string; data: { token: string; username: string; email: string; role: string } }>,
-    register: (data: { username: string; email: string; password: string; captcha: string; captchaId: string }) =>
+    register: (data: { username: string; email: string; password: string; captcha: string; captchaId: string; emailCode: string }) =>
         api.post('/auth/register', data) as Promise<{ code: number; message: string; data: { token: string; username: string; email: string; role: string } }>,
     logout: () => api.post('/auth/logout'),
     me: () => api.get('/auth/me') as Promise<{ code: number; data: { username: string; email: string; role: string; createdAt: string } }>,
@@ -58,38 +58,32 @@ export const authApi = {
         api.put('/auth/profile/password', { oldPassword, newPassword }) as Promise<{ code: number; message: string }>,
 }
 
+// ========== Email API ==========
+export const emailApi = {
+    sendCode: (email: string) =>
+        api.post('/email/send-code', { email }) as Promise<{ code: number; message: string }>,
+}
+
 // ========== Admin API ==========
 export const adminApi = {
     // 仪表盘
-    getDashboard: () =>
-        api.get('/admin/dashboard') as Promise<{
-            code: number; data: {
-                totalUsers: number; todayNewUsers: number; activeUsers: number;
-                disabledUsers: number; adminCount: number; userCount: number
-            }
-        }>,
-
-    // 用户管理
+    getDashboard: () => api.get('/admin/dashboard') as Promise<{ code: number; data: Record<string, number> }>,
+    // 用户列表
     getUsers: (params: { page?: number; size?: number; keyword?: string; role?: string }) =>
-        api.get('/admin/users', { params }) as Promise<{
-            code: number; data: {
-                content: Array<{
-                    id: number; username: string; email: string; role: string;
-                    enabled: boolean; lastLoginAt: string | null; createdAt: string
-                }>;
-                totalElements: number; totalPages: number; number: number; size: number
-            }
-        }>,
-
-    updateUserRole: (id: number, role: string) =>
+        api.get('/admin/users', { params }) as Promise<{ code: number; data: any }>,
+    // 修改角色
+    updateRole: (id: number, role: string) =>
         api.put(`/admin/users/${id}/role`, { role }) as Promise<{ code: number; message: string }>,
-
-    updateUserStatus: (id: number, enabled: boolean) =>
+    // 修改状态
+    updateStatus: (id: number, enabled: boolean) =>
         api.put(`/admin/users/${id}/status`, { enabled }) as Promise<{ code: number; message: string }>,
-
-    resetUserPassword: (id: number) =>
+    // 重置密码
+    resetPassword: (id: number) =>
         api.post(`/admin/users/${id}/reset-password`) as Promise<{ code: number; data: { tempPassword: string } }>,
-
+    // 删除用户
     deleteUser: (id: number) =>
         api.delete(`/admin/users/${id}`) as Promise<{ code: number; message: string }>,
+    // 邮件配置
+    getEmailConfig: () =>
+        api.get('/admin/email-config') as Promise<{ code: number; data: Record<string, any> }>,
 }

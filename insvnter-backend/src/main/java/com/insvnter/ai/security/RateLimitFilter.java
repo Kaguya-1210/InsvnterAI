@@ -16,7 +16,9 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * 基于 Redis 的 IP 限流过滤器
- * 对登录和注册接口限制每分钟最多 10 次请求
+ * - 登录: 10 次/分钟/IP
+ * - 注册: 3 次/小时/IP
+ * - 邮箱验证码: 5 次/小时/IP
  */
 @Slf4j
 @Component
@@ -26,8 +28,6 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private final StringRedisTemplate redisTemplate;
 
     private static final String RATE_LIMIT_PREFIX = "rate:";
-    private static final int MAX_REQUESTS = 10;
-    private static final int WINDOW_SECONDS = 60;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -35,27 +35,45 @@ public class RateLimitFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
 
         String path = request.getRequestURI();
+        String method = request.getMethod();
 
-        // 只对认证接口限流
-        if (path.startsWith("/api/auth/login") || path.startsWith("/api/auth/register")) {
-            String ip = getClientIp(request);
-            String key = RATE_LIMIT_PREFIX + path + ":" + ip;
+        // 只拦截 POST 请求
+        if ("POST".equalsIgnoreCase(method)) {
+            RateRule rule = getRateRule(path);
+            if (rule != null) {
+                String ip = getClientIp(request);
+                String key = RATE_LIMIT_PREFIX + rule.name + ":" + ip;
 
-            Long count = redisTemplate.opsForValue().increment(key);
-            if (count != null && count == 1) {
-                redisTemplate.expire(key, WINDOW_SECONDS, TimeUnit.SECONDS);
-            }
+                Long count = redisTemplate.opsForValue().increment(key);
+                if (count != null && count == 1) {
+                    redisTemplate.expire(key, rule.windowSeconds, TimeUnit.SECONDS);
+                }
 
-            if (count != null && count > MAX_REQUESTS) {
-                log.warn("Rate limit exceeded: ip={}, path={}, count={}", ip, path, count);
-                response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
-                response.setContentType("application/json;charset=UTF-8");
-                response.getWriter().write("{\"code\":429,\"message\":\"请求过于频繁，请稍后再试\",\"data\":null}");
-                return;
+                if (count != null && count > rule.maxRequests) {
+                    log.warn("Rate limit [{}]: ip={}, count={}", rule.name, ip, count);
+                    response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
+                    response.setContentType("application/json;charset=UTF-8");
+                    response.getWriter().write(
+                            "{\"code\":429,\"message\":\"" + rule.message + "\",\"data\":null}");
+                    return;
+                }
             }
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private RateRule getRateRule(String path) {
+        if (path.startsWith("/api/auth/login")) {
+            return new RateRule("login", 10, 60, "登录请求过于频繁，请稍后再试");
+        }
+        if (path.startsWith("/api/auth/register")) {
+            return new RateRule("register", 3, 3600, "注册次数已达上限，请1小时后再试");
+        }
+        if (path.startsWith("/api/email/send-code")) {
+            return new RateRule("email", 5, 3600, "验证码发送过于频繁，请1小时后再试");
+        }
+        return null;
     }
 
     private String getClientIp(HttpServletRequest request) {
@@ -69,4 +87,6 @@ public class RateLimitFilter extends OncePerRequestFilter {
         }
         return request.getRemoteAddr();
     }
+
+    private record RateRule(String name, int maxRequests, int windowSeconds, String message) {}
 }
