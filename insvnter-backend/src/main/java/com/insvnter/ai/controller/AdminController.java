@@ -150,6 +150,7 @@ public class AdminController {
             result.put("smtpPassword", maskPassword(v.getOrDefault("smtpPassword", "")));
             result.put("fromAddress", v.getOrDefault("fromAddress", ""));
             result.put("fromName", v.getOrDefault("fromName", ""));
+            result.put("activeTemplateId", v.getOrDefault("activeTemplateId", ""));
             result.put("configured", true);
         } else {
             result.put("smtpHost", "");
@@ -158,6 +159,7 @@ public class AdminController {
             result.put("smtpPassword", "");
             result.put("fromAddress", "");
             result.put("fromName", "");
+            result.put("activeTemplateId", "");
             result.put("configured", false);
         }
         return ApiResult.ok(result);

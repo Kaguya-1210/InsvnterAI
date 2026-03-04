@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { NCard, NForm, NFormItem, NInput, NButton, NSpace, NIcon, NTag, NDivider, NSpin, useMessage } from 'naive-ui'
-import { MailOutline, SendOutline, SaveOutline } from '@vicons/ionicons5'
+import {
+  NCard, NForm, NFormItem, NInput, NButton, NSpace, NIcon, NTag, NDivider,
+  NSpin, NSelect, useMessage,
+} from 'naive-ui'
+import { MailOutline, SendOutline, SaveOutline, ColorPaletteOutline } from '@vicons/ionicons5'
 import { adminApi } from '@/api'
 
 const message = useMessage()
@@ -16,14 +19,21 @@ const form = ref({
   smtpPassword: '',
   fromAddress: '',
   fromName: '',
+  activeTemplateId: '',
 })
 const configured = ref(false)
 const testEmail = ref('')
 
+// 模板选项
+const templateOptions = ref<{ label: string; value: string }[]>([])
+
 onMounted(async () => {
   try {
-    const res = await adminApi.getEmailConfig()
-    const d = res.data
+    const [configRes, templatesRes] = await Promise.all([
+      adminApi.getEmailConfig(),
+      adminApi.getEmailTemplates(),
+    ])
+    const d = configRes.data
     form.value = {
       smtpHost: d.smtpHost || '',
       smtpPort: d.smtpPort || '587',
@@ -31,8 +41,14 @@ onMounted(async () => {
       smtpPassword: d.smtpPassword || '',
       fromAddress: d.fromAddress || '',
       fromName: d.fromName || '',
+      activeTemplateId: d.activeTemplateId || '',
     }
     configured.value = d.configured
+
+    templateOptions.value = [
+      { label: '不使用模板（纯文字）', value: '' },
+      ...templatesRes.data.map((t: any) => ({ label: t.name, value: t.id })),
+    ]
   } catch { /* ignore */ }
   loading.value = false
 })
@@ -87,36 +103,62 @@ async function handleTest() {
 
         <NForm label-placement="left" label-width="100" :show-feedback="false">
           <NFormItem label="SMTP 服务器">
-            <NInput v-model:value="form.smtpHost" placeholder="smtp.qq.com / smtp.163.com" />
+            <NInput v-model:value="form.smtpHost" placeholder="smtp.qq.com / smtp.163.com" autocomplete="off" />
           </NFormItem>
           <NFormItem label="端口">
-            <NInput v-model:value="form.smtpPort" placeholder="587" style="width: 120px;" />
+            <NInput v-model:value="form.smtpPort" placeholder="587" style="width: 120px;" autocomplete="off" />
           </NFormItem>
           <NFormItem label="账号">
-            <NInput v-model:value="form.smtpUsername" placeholder="your-email@qq.com" />
+            <NInput v-model:value="form.smtpUsername" placeholder="your-email@qq.com" autocomplete="off" />
           </NFormItem>
           <NFormItem label="密码/授权码">
-            <NInput v-model:value="form.smtpPassword" type="password" show-password-on="click" placeholder="SMTP 授权码" />
+            <NInput v-model:value="form.smtpPassword" type="password" show-password-on="click" placeholder="SMTP 授权码" autocomplete="new-password" />
           </NFormItem>
 
           <NDivider style="margin: 16px 0;" />
 
           <NFormItem label="发件人名称">
-            <NInput v-model:value="form.fromName" placeholder="InsvnterAI" />
+            <NInput v-model:value="form.fromName" placeholder="InsvnterAI" autocomplete="off" />
           </NFormItem>
           <NFormItem label="发件人地址">
-            <NInput v-model:value="form.fromAddress" placeholder="noreply@insvnter.ai" />
+            <NInput v-model:value="form.fromAddress" placeholder="noreply@insvnter.ai" autocomplete="off" />
           </NFormItem>
         </NForm>
-
-        <NSpace style="margin-top: 20px;">
-          <NButton type="primary" :loading="saving" @click="handleSave">
-            <template #icon><NIcon :component="SaveOutline" /></template>
-            保存配置
-          </NButton>
-        </NSpace>
       </NCard>
 
+      <!-- 邮件模板选择 -->
+      <NCard class="config-card" style="margin-top: 16px;">
+        <template #header>
+          <NSpace align="center" :size="8">
+            <div class="section-icon" style="background: rgba(139, 92, 246, 0.12); color: #8b5cf6;">
+              <NIcon :component="ColorPaletteOutline" :size="18" />
+            </div>
+            验证码邮件模板
+          </NSpace>
+        </template>
+
+        <NFormItem label="当前模板" label-placement="left" label-width="100" :show-feedback="false">
+          <NSelect
+            v-model:value="form.activeTemplateId"
+            :options="templateOptions"
+            placeholder="选择邮件模板"
+            clearable
+            style="width: 300px;"
+          />
+        </NFormItem>
+        <p style="font-size: 12px; color: #71717a; margin: 8px 0 0;">
+          选择注册验证码使用的邮件模板，不选择则发送纯文字邮件
+        </p>
+      </NCard>
+
+      <NSpace style="margin-top: 20px;">
+        <NButton type="primary" :loading="saving" @click="handleSave">
+          <template #icon><NIcon :component="SaveOutline" /></template>
+          保存全部配置
+        </NButton>
+      </NSpace>
+
+      <!-- 测试发送 -->
       <NCard class="config-card" style="margin-top: 16px;">
         <template #header>
           <NSpace align="center" :size="8">
@@ -128,7 +170,7 @@ async function handleTest() {
         </template>
 
         <NSpace>
-          <NInput v-model:value="testEmail" placeholder="收件邮箱" style="width: 280px;" />
+          <NInput v-model:value="testEmail" placeholder="收件邮箱" style="width: 280px;" autocomplete="off" />
           <NButton type="success" :loading="testing" :disabled="!configured" @click="handleTest">发送测试邮件</NButton>
         </NSpace>
         <p v-if="!configured" style="font-size: 12px; color: #f59e0b; margin: 8px 0 0;">请先保存 SMTP 配置</p>

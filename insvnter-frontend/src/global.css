@@ -1,0 +1,46 @@
+/* ================================================
+   InsvnterAI — 全局样式重置与补丁
+   ================================================ */
+
+/* ---- 浏览器自动填充背景修复 (Edge/Chrome) ---- */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px transparent inset !important;
+  -webkit-text-fill-color: inherit !important;
+  transition: background-color 5000s ease-in-out 0s !important;
+  background-color: transparent !important;
+}
+
+/* ---- 管理后台禁用文本选择 ---- */
+.admin-layout .admin-sider,
+.admin-layout .admin-header,
+.admin-layout .page-title,
+.admin-layout .page-desc,
+.admin-layout .section-icon,
+.admin-layout .config-label,
+.admin-layout .pane-header,
+.admin-layout .template-desc,
+.admin-layout .editor-hint {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* 允许选择的区域：输入框、代码编辑器、表格数据 */
+.admin-layout input,
+.admin-layout textarea,
+.admin-layout .html-editor,
+.admin-layout .n-data-table-td {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* ---- Auth 弹窗禁用选择 ---- */
+.auth-dialog .auth-header,
+.auth-dialog .auth-switch,
+.auth-dialog .captcha-img {
+  user-select: none;
+  -webkit-user-select: none;
+}
