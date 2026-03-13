@@ -10,6 +10,12 @@ const router = createRouter({
       component: () => import('../views/LandingPage.vue'),
     },
     {
+      path: '/chat',
+      name: 'chat',
+      component: () => import('../views/chat/ChatView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/console/manage',
       component: () => import('../layouts/AdminLayout.vue'),
       meta: { requiresAuth: true, requiresAdmin: true },

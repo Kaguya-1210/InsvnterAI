@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, h } from 'vue'
+import { ref, h, computed } from 'vue'
 import {
   NButton,
   NIcon,
@@ -12,13 +12,18 @@ import {
   MoonOutline,
   PersonCircleOutline,
   LogOutOutline,
+  ChatbubblesOutline,
+  GridOutline,
+  HomeOutline,
 } from '@vicons/ionicons5'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
+import { useRouter } from 'vue-router'
 import AuthModal from './AuthModal.vue'
 
 const auth = useAuthStore()
 const theme = useThemeStore()
+const router = useRouter()
 const showAuth = ref(false)
 const authTab = ref<'login' | 'register'>('login')
 
@@ -27,14 +32,22 @@ function openAuth(tab: 'login' | 'register') {
   showAuth.value = true
 }
 
-const userMenuOptions = [
+function handleAuthSuccess() {
+  showAuth.value = false
+  router.push('/chat')
+}
+
+const userMenuOptions = computed(() => [
+  { label: '进入对话', key: 'chat', icon: () => h(NIcon, null, { default: () => h(ChatbubblesOutline) }) },
+  ...(auth.user?.role === 'ADMIN' ? [{ label: '管理控制台', key: 'console', icon: () => h(NIcon, null, { default: () => h(GridOutline) }) }] : []),
+  { type: 'divider' as const, key: 'd1' },
   { label: '退出登录', key: 'logout', icon: () => h(NIcon, null, { default: () => h(LogOutOutline) }) },
-]
+])
 
 function handleUserMenu(key: string) {
-  if (key === 'logout') {
-    auth.logout()
-  }
+  if (key === 'chat') router.push('/chat')
+  else if (key === 'console') router.push('/console/manage')
+  else if (key === 'logout') { auth.logout(); router.push('/') }
 }
 </script>
 
