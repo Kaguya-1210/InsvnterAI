@@ -98,7 +98,7 @@ const columns: DataTableColumns<UserRow> = [
             size: 'small', secondary: true, type: 'warning',
             onClick: () => handleToggleRole(row),
           }, { default: () => '降为用户' }))
-        } else if (!hasAdmin || !users.value.some(u => u.role === 'ADMIN' && u.username !== currentUsername.value)) {
+        } else if (!hasAdmin) {
           actions.push(h(NButton, {
             size: 'small', secondary: true, type: 'info',
             onClick: () => handleToggleRole(row),
@@ -196,13 +196,22 @@ async function handleToggleRole(row: UserRow) {
 }
 
 async function handleToggleStatus(row: UserRow) {
-  try {
-    await adminApi.updateUserStatus(row.id, !row.enabled)
-    message.success(row.enabled ? '用户已禁用' : '用户已启用')
-    fetchUsers()
-  } catch (e: any) {
-    message.error(e.message)
-  }
+  const action = row.enabled ? '禁用' : '启用'
+  dialog.warning({
+    title: `确认${action}`,
+    content: `确定要${action}用户 ${row.username}？`,
+    positiveText: '确认',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        await adminApi.updateUserStatus(row.id, !row.enabled)
+        message.success(`用户已${action}`)
+        fetchUsers()
+      } catch (e: any) {
+        message.error(e.message)
+      }
+    },
+  })
 }
 
 async function handleResetPassword(row: UserRow) {

@@ -192,6 +192,9 @@ public class AdminController {
                 });
 
         Map<String, String> values = new LinkedHashMap<>(body);
+        // 过滤掉非配置字段，防止前端误传
+        values.remove("configured");
+
         if (config.getValues() != null && values.get("smtpPassword") != null
                 && values.get("smtpPassword").contains("****")) {
             values.put("smtpPassword", config.getValues().getOrDefault("smtpPassword", ""));
@@ -246,6 +249,7 @@ public class AdminController {
 
     private String maskPassword(String pwd) {
         if (!StringUtils.hasText(pwd)) return "";
+        if (pwd.length() <= 2) return "****";
         return pwd.charAt(0) + "****" + pwd.charAt(pwd.length() - 1);
     }
 }

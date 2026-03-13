@@ -78,6 +78,9 @@ public class AuthController {
             throw new IllegalArgumentException("用户名已被占用");
         }
 
+        // 旧 token 里 subject 是旧用户名，加入黑名单
+        jwtTokenProvider.blacklistByUsername(currentUsername);
+
         user.setUsername(newUsername);
         userRepository.save(user);
 
@@ -110,6 +113,9 @@ public class AuthController {
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
 
-        return ApiResult.ok("密码已更新", null);
+        // 使旧 token 失效，强制重新登录
+        jwtTokenProvider.blacklistByUsername(username);
+
+        return ApiResult.ok("密码已更新，请重新登录", null);
     }
 }

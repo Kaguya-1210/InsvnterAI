@@ -25,26 +25,36 @@ const router = createRouter({
   ],
 })
 
+// 缓存管理员验证结果，30 秒内不重复请求
+let adminVerifiedAt = 0
+const ADMIN_CACHE_MS = 30_000
+
 router.beforeEach(async (to, _from, next) => {
   const token = localStorage.getItem('insvnter_token')
   if (!to.meta.requiresAuth) { next(); return }
   if (!token) { clearSession(); next({ name: 'landing' }); return }
 
   if (to.meta.requiresAdmin) {
-    try {
-      const res = await authApi.me()
-      if (res.data.role !== 'ADMIN') { clearSession(); next({ name: 'landing' }); return }
-      localStorage.setItem('insvnter_user', JSON.stringify(res.data))
-    } catch {
-      clearSession(); next({ name: 'landing' }); return
+    const now = Date.now()
+    if (now - adminVerifiedAt > ADMIN_CACHE_MS) {
+      try {
+        const res = await authApi.me()
+        if (res.data.role !== 'ADMIN') { clearSession(); next({ name: 'landing' }); return }
+        localStorage.setItem('insvnter_user', JSON.stringify(res.data))
+        adminVerifiedAt = now
+      } catch {
+        clearSession(); next({ name: 'landing' }); return
+      }
     }
   }
   next()
 })
 
 function clearSession() {
+  adminVerifiedAt = 0
   localStorage.removeItem('insvnter_token')
   localStorage.removeItem('insvnter_user')
 }
 
 export default router
+
