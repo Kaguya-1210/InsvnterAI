@@ -3,9 +3,14 @@ import { computed } from 'vue'
 import { RouterView } from 'vue-router'
 import { NConfigProvider, NMessageProvider, NDialogProvider, darkTheme, NNotificationProvider } from 'naive-ui'
 import { useThemeStore } from '@/stores/theme'
+import { useAuthStore } from '@/stores/auth'
 
 const themeStore = useThemeStore()
 const naiveTheme = computed(() => (themeStore.isDark ? darkTheme : null))
+
+// 页面刷新时验证用户会话是否仍然有效
+const authStore = useAuthStore()
+authStore.checkSession()
 </script>
 
 <template>

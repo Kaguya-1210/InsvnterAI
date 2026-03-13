@@ -88,25 +88,22 @@ public class AdminController {
         String newRole = body.get("role");
         if (newRole == null) throw new IllegalArgumentException("角色不能为空");
 
-        User.Role parsedRole;
+        User.Role targetRole;
         try {
-            parsedRole = User.Role.valueOf(newRole.toUpperCase());
+            targetRole = User.Role.valueOf(newRole.toUpperCase());
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("无效角色: " + newRole);
         }
 
-        // 单管理员限制
-        if (parsedRole == User.Role.ADMIN) {
+        // 只允许一个管理员
+        if (targetRole == User.Role.ADMIN) {
             long adminCount = userRepository.countByRole(User.Role.ADMIN);
-            if (adminCount >= 1) throw new IllegalArgumentException("系统仅允许一个管理员");
-        }
-        // 不能降级最后一个管理员
-        if (target.getRole() == User.Role.ADMIN && parsedRole != User.Role.ADMIN) {
-            long adminCount = userRepository.countByRole(User.Role.ADMIN);
-            if (adminCount <= 1) throw new IllegalArgumentException("不能降级唯一的管理员");
+            if (adminCount >= 1) {
+                throw new IllegalArgumentException("系统仅允许一个管理员，请先将当前管理员降级");
+            }
         }
 
-        target.setRole(parsedRole);
+        target.setRole(targetRole);
         userRepository.save(target);
         return ApiResult.ok("角色已更新", null);
     }
@@ -127,9 +124,12 @@ public class AdminController {
     }
 
     @PostMapping("/users/{id}/reset-password")
-    public ApiResult<Map<String, String>> resetPassword(@PathVariable Long id) {
+    public ApiResult<Map<String, String>> resetPassword(@PathVariable Long id,
+                                                         Authentication authentication) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
+        assertNotSelf(authentication, user, "不能重置自己的密码，请到个人设置中修改");
+
         String tempPassword = generateTempPassword();
         user.setPassword(passwordEncoder.encode(tempPassword));
         userRepository.save(user);

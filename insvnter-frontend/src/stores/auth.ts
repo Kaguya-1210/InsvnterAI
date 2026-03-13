@@ -59,5 +59,20 @@ export const useAuthStore = defineStore('auth', () => {
         saveSession(data)
     }
 
-    return { user, token, isLoggedIn, login, register, logout, updateSession }
+    /** 页面刷新时验证 token 是否仍然有效（用户被删除/禁用/密码被重置时会失效） */
+    async function checkSession() {
+        if (!token.value) return
+        try {
+            const res = await authApi.me()
+            user.value = { username: res.data.username, email: res.data.email, role: res.data.role }
+        } catch {
+            // token 无效，清除本地会话
+            token.value = null
+            user.value = null
+            localStorage.removeItem('insvnter_token')
+            localStorage.removeItem('insvnter_user')
+        }
+    }
+
+    return { user, token, isLoggedIn, login, register, logout, updateSession, checkSession }
 })

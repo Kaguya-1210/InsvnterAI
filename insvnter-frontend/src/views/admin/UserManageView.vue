@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, h, computed } from 'vue'
+import { ref, computed, onMounted, h } from 'vue'
 import {
   NCard, NDataTable, NSpace, NButton, NInput, NSelect, NIcon,
   NTag, NPopconfirm, useMessage, useDialog, NText, NPagination,
@@ -10,9 +10,6 @@ import { adminApi } from '@/api'
 
 const message = useMessage()
 const dialog = useDialog()
-
-// 获取当前登录用户
-const currentUser = JSON.parse(localStorage.getItem('insvnter_user') || '{}')
 
 interface UserRow {
   id: number
@@ -38,78 +35,96 @@ const roleOptions = [
   { label: '普通用户', value: 'USER' },
 ]
 
-// 是否是当前登录的管理员自己
-function isSelf(row: UserRow): boolean {
-  return row.username === currentUser.username
-}
-
 const columns: DataTableColumns<UserRow> = [
   { title: 'ID', key: 'id', width: 60, align: 'center' },
   { title: '用户名', key: 'username', width: 140 },
   { title: '邮箱', key: 'email', width: 200, ellipsis: { tooltip: true } },
   {
-    title: '角色', key: 'role', width: 100, align: 'center',
+    title: '角色',
+    key: 'role',
+    width: 100,
+    align: 'center',
     render(row) {
       return h(NTag, {
         type: row.role === 'ADMIN' ? 'warning' : 'info',
-        size: 'small', round: true,
+        size: 'small',
+        round: true,
       }, { default: () => row.role === 'ADMIN' ? '管理员' : '用户' })
     },
   },
   {
-    title: '状态', key: 'enabled', width: 80, align: 'center',
+    title: '状态',
+    key: 'enabled',
+    width: 80,
+    align: 'center',
     render(row) {
       return h(NTag, {
         type: row.enabled ? 'success' : 'error',
-        size: 'small', round: true,
+        size: 'small',
+        round: true,
       }, { default: () => row.enabled ? '正常' : '禁用' })
     },
   },
   {
-    title: '最后登录', key: 'lastLoginAt', width: 170,
+    title: '最后登录',
+    key: 'lastLoginAt',
+    width: 170,
     render(row) {
       return row.lastLoginAt ? formatDate(row.lastLoginAt) : h(NText, { depth: 3 }, { default: () => '从未登录' })
     },
   },
   {
-    title: '注册时间', key: 'createdAt', width: 170,
-    render(row) { return formatDate(row.createdAt) },
+    title: '注册时间',
+    key: 'createdAt',
+    width: 170,
+    render(row) {
+      return formatDate(row.createdAt)
+    },
   },
   {
-    title: '操作', key: 'actions', width: 280, fixed: 'right',
+    title: '操作',
+    key: 'actions',
+    width: 280,
+    fixed: 'right',
     render(row) {
-      const self = isSelf(row)
-      const buttons: any[] = []
+      const isSelf = row.username === currentUsername.value
+      const hasAdmin = users.value.some(u => u.role === 'ADMIN')
+      const actions: any[] = []
 
-      // 角色切换 — 自己不能改自己
-      if (!self) {
-        buttons.push(h(NButton, {
-          size: 'small', secondary: true,
-          type: row.role === 'ADMIN' ? 'warning' : 'info',
-          onClick: () => handleToggleRole(row),
-        }, { default: () => row.role === 'ADMIN' ? '降为用户' : '升为管理员' }))
+      // 角色切换（不能改自己 + 只允许1个管理员）
+      if (!isSelf) {
+        if (row.role === 'ADMIN') {
+          actions.push(h(NButton, {
+            size: 'small', secondary: true, type: 'warning',
+            onClick: () => handleToggleRole(row),
+          }, { default: () => '降为用户' }))
+        } else if (!hasAdmin || !users.value.some(u => u.role === 'ADMIN' && u.username !== currentUsername.value)) {
+          actions.push(h(NButton, {
+            size: 'small', secondary: true, type: 'info',
+            onClick: () => handleToggleRole(row),
+          }, { default: () => '升为管理员' }))
+        }
       }
 
-      // 启用/禁用 — 自己不能禁用自己
-      if (!self) {
-        buttons.push(h(NButton, {
-          size: 'small', secondary: true,
-          type: row.enabled ? 'error' : 'success',
+      // 启用/禁用（不能禁用自己）
+      if (!isSelf) {
+        actions.push(h(NButton, {
+          size: 'small', secondary: true, type: row.enabled ? 'error' : 'success',
           onClick: () => handleToggleStatus(row),
         }, { default: () => row.enabled ? '禁用' : '启用' }))
       }
 
-      // 重置密码 — 自己不能在这里重置（应去个人设置）
-      if (!self) {
-        buttons.push(h(NButton, {
+      // 重置密码（不能重置自己）
+      if (!isSelf) {
+        actions.push(h(NButton, {
           size: 'small', secondary: true,
           onClick: () => handleResetPassword(row),
         }, { default: () => '重置密码' }))
       }
 
-      // 删除 — 自己不能删除自己
-      if (!self) {
-        buttons.push(h(NPopconfirm, {
+      // 删除（不能删自己）
+      if (!isSelf) {
+        actions.push(h(NPopconfirm, {
           onPositiveClick: () => handleDelete(row),
         }, {
           trigger: () => h(NButton, { size: 'small', secondary: true, type: 'error' }, { default: () => '删除' }),
@@ -117,14 +132,21 @@ const columns: DataTableColumns<UserRow> = [
         }))
       }
 
-      if (self) {
-        buttons.push(h(NTag, { size: 'small', type: 'info', round: true }, { default: () => '当前用户' }))
+      if (isSelf) {
+        actions.push(h(NTag, { size: 'small', type: 'info', round: true }, { default: () => '当前账户' }))
       }
 
-      return h(NSpace, { size: 4 }, { default: () => buttons })
+      return h(NSpace, { size: 4 }, { default: () => actions })
     },
   },
 ]
+
+const currentUsername = computed(() => {
+  try {
+    const u = JSON.parse(localStorage.getItem('insvnter_user') || '{}')
+    return u.username || ''
+  } catch { return '' }
+})
 
 function formatDate(str: string): string {
   const d = new Date(str)
@@ -156,13 +178,6 @@ function handleSearch() {
 
 async function handleToggleRole(row: UserRow) {
   const newRole = row.role === 'ADMIN' ? 'USER' : 'ADMIN'
-
-  // 限制只能有一个管理员：如果要提权为管理员，检查是否已有管理员
-  if (newRole === 'ADMIN') {
-    const hasAdmin = users.value.some(u => u.role === 'ADMIN' && u.id !== row.id)
-    // 后端也会校验，这里只是前端友好提示
-  }
-
   dialog.warning({
     title: '确认角色变更',
     content: `将 ${row.username} 的角色从 ${row.role === 'ADMIN' ? '管理员' : '用户'} 改为 ${newRole === 'ADMIN' ? '管理员' : '用户'}？`,
@@ -170,7 +185,7 @@ async function handleToggleRole(row: UserRow) {
     negativeText: '取消',
     onPositiveClick: async () => {
       try {
-        await adminApi.updateRole(row.id, newRole)
+        await adminApi.updateUserRole(row.id, newRole)
         message.success('角色已更新')
         fetchUsers()
       } catch (e: any) {
@@ -182,7 +197,7 @@ async function handleToggleRole(row: UserRow) {
 
 async function handleToggleStatus(row: UserRow) {
   try {
-    await adminApi.updateStatus(row.id, !row.enabled)
+    await adminApi.updateUserStatus(row.id, !row.enabled)
     message.success(row.enabled ? '用户已禁用' : '用户已启用')
     fetchUsers()
   } catch (e: any) {
@@ -198,7 +213,7 @@ async function handleResetPassword(row: UserRow) {
     negativeText: '取消',
     onPositiveClick: async () => {
       try {
-        const res = await adminApi.resetPassword(row.id)
+        const res = await adminApi.resetUserPassword(row.id)
         dialog.success({
           title: '密码已重置',
           content: `新密码: ${res.data.tempPassword}\n\n请记录此密码，关闭后无法再次查看。`,
@@ -287,7 +302,19 @@ onMounted(fetchUsers)
 </template>
 
 <style scoped>
-.user-manage { max-width: 1400px; }
-.page-title { font-size: 24px; font-weight: 700; margin: 0 0 4px; }
-.page-desc { font-size: 14px; color: #a1a1aa; margin: 0 0 24px; }
+.user-manage {
+  max-width: 1400px;
+}
+
+.page-title {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+
+.page-desc {
+  font-size: 14px;
+  color: #a1a1aa;
+  margin: 0 0 24px;
+}
 </style>

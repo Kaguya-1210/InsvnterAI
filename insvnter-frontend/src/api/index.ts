@@ -56,9 +56,9 @@ export const adminApi = {
     getDashboard: () => api.get('/admin/dashboard') as Promise<{ code: number; data: Record<string, number> }>,
     getUsers: (params: { page?: number; size?: number; keyword?: string; role?: string }) =>
         api.get('/admin/users', { params }) as Promise<{ code: number; data: any }>,
-    updateRole: (id: number, role: string) => api.put(`/admin/users/${id}/role`, { role }) as Promise<{ code: number }>,
-    updateStatus: (id: number, enabled: boolean) => api.put(`/admin/users/${id}/status`, { enabled }) as Promise<{ code: number }>,
-    resetPassword: (id: number) => api.post(`/admin/users/${id}/reset-password`) as Promise<{ code: number; data: { tempPassword: string } }>,
+    updateUserRole: (id: number, role: string) => api.put(`/admin/users/${id}/role`, { role }) as Promise<{ code: number }>,
+    updateUserStatus: (id: number, enabled: boolean) => api.put(`/admin/users/${id}/status`, { enabled }) as Promise<{ code: number }>,
+    resetUserPassword: (id: number) => api.post(`/admin/users/${id}/reset-password`) as Promise<{ code: number; data: { tempPassword: string } }>,
     deleteUser: (id: number) => api.delete(`/admin/users/${id}`) as Promise<{ code: number }>,
 
     // 邮件配置
