@@ -8,7 +8,10 @@ import { useAuthStore } from '@/stores/auth'
 import { authApi, emailApi } from '@/api'
 
 const props = defineProps<{ show: boolean; initialTab?: 'login' | 'register' }>()
-const emit = defineEmits<{ (e: 'update:show', value: boolean): void }>()
+const emit = defineEmits<{
+  (e: 'update:show', value: boolean): void
+  (e: 'success'): void
+}>()
 
 const auth = useAuthStore()
 const message = useMessage()
@@ -94,6 +97,7 @@ async function handleLogin() {
     await auth.login(loginForm.value.account, loginForm.value.password, loginForm.value.captcha, captchaId.value)
     message.success('登录成功！')
     visible.value = false
+    emit('success')
   } catch (e: any) {
     message.error(e.message || '登录失败')
     loginForm.value.captcha = ''
@@ -115,6 +119,7 @@ async function handleRegister() {
     await auth.register(f.username, f.email, f.password, f.captcha, captchaId.value, f.emailCode)
     message.success(`注册成功，欢迎 ${f.username}！`)
     visible.value = false
+    emit('success')
   } catch (e: any) {
     message.error(e.message || '注册失败')
     registerForm.value.captcha = ''

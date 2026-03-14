@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, h, computed } from 'vue'
+import { ref, h, computed, onMounted, onUnmounted } from 'vue'
 import {
   NButton,
   NIcon,
@@ -20,21 +20,31 @@ import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { useRouter } from 'vue-router'
 import AuthModal from './AuthModal.vue'
+import { usePageTransition } from '@/composables/usePageTransition'
 
 const auth = useAuthStore()
 const theme = useThemeStore()
 const router = useRouter()
 const showAuth = ref(false)
 const authTab = ref<'login' | 'register'>('login')
+const transition = usePageTransition()
 
 function openAuth(tab: 'login' | 'register') {
   authTab.value = tab
   showAuth.value = true
 }
 
+// 监听 LandingPage 的自定义事件
+function handleOpenAuth(e: Event) {
+  const tab = (e as CustomEvent).detail || 'login'
+  openAuth(tab)
+}
+onMounted(() => window.addEventListener('open-auth', handleOpenAuth))
+onUnmounted(() => window.removeEventListener('open-auth', handleOpenAuth))
+
 function handleAuthSuccess() {
   showAuth.value = false
-  router.push('/chat')
+  transition.play(() => router.push('/chat'))
 }
 
 const userMenuOptions = computed(() => [
@@ -45,7 +55,7 @@ const userMenuOptions = computed(() => [
 ])
 
 function handleUserMenu(key: string) {
-  if (key === 'chat') router.push('/chat')
+  if (key === 'chat') transition.play(() => router.push('/chat'))
   else if (key === 'console') router.push('/console/manage')
   else if (key === 'logout') { auth.logout(); router.push('/') }
 }
@@ -117,7 +127,8 @@ function handleUserMenu(key: string) {
     </div>
 
     <!-- Auth Modal -->
-    <AuthModal v-model:show="showAuth" :initial-tab="authTab" />
+    <AuthModal v-model:show="showAuth" :initial-tab="authTab" @success="handleAuthSuccess" />
+
   </nav>
 </template>
 

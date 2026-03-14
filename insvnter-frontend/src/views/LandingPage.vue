@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { NButton, NIcon, NGradientText } from 'naive-ui'
 import {
   RocketOutline,
@@ -8,7 +9,22 @@ import {
   ExtensionPuzzleOutline,
   ShieldCheckmarkOutline,
 } from '@vicons/ionicons5'
+import { useRouter } from 'vue-router'
 import AppNavbar from '@/components/AppNavbar.vue'
+import { useAuthStore } from '@/stores/auth'
+import { usePageTransition } from '@/composables/usePageTransition'
+
+const router = useRouter()
+const auth = useAuthStore()
+const transition = usePageTransition()
+
+function handleEnterChat() {
+  if (!auth.isLoggedIn) {
+    window.dispatchEvent(new CustomEvent('open-auth', { detail: 'login' }))
+    return
+  }
+  transition.play(() => router.push('/chat'))
+}
 
 const features = [
   {
@@ -68,6 +84,17 @@ const features = [
         </p>
         <div class="hero-actions">
           <NButton
+            type="primary"
+            size="large"
+            round
+            strong
+            @click="handleEnterChat"
+            class="enter-btn"
+          >
+            <template #icon><NIcon :component="ChatbubblesOutline" /></template>
+            开始对话
+          </NButton>
+          <NButton
             size="large"
             round
             quaternary
@@ -81,6 +108,7 @@ const features = [
       </div>
       <div class="hero-glow"></div>
     </section>
+
 
     <!-- Features -->
     <section class="features">
@@ -165,6 +193,38 @@ const features = [
   gap: 16px;
   justify-content: center;
   flex-wrap: wrap;
+}
+
+.enter-btn {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.3s ease;
+}
+
+.enter-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(99, 102, 241, 0.35);
+}
+
+.enter-btn::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    45deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.15) 50%,
+    transparent 60%
+  );
+  animation: btnShine 3s ease-in-out infinite;
+}
+
+@keyframes btnShine {
+  0%, 100% { transform: translateX(-100%) rotate(45deg); }
+  50% { transform: translateX(100%) rotate(45deg); }
 }
 
 /* ============ FEATURES ============ */

@@ -4,6 +4,8 @@ import { RouterView } from 'vue-router'
 import { NConfigProvider, NMessageProvider, NDialogProvider, darkTheme, NNotificationProvider } from 'naive-ui'
 import { useThemeStore } from '@/stores/theme'
 import { useAuthStore } from '@/stores/auth'
+import ChatTransition from '@/components/ChatTransition.vue'
+import { usePageTransition } from '@/composables/usePageTransition'
 
 const themeStore = useThemeStore()
 const naiveTheme = computed(() => (themeStore.isDark ? darkTheme : null))
@@ -11,6 +13,9 @@ const naiveTheme = computed(() => (themeStore.isDark ? darkTheme : null))
 // 页面刷新时验证用户会话是否仍然有效
 const authStore = useAuthStore()
 authStore.checkSession()
+
+// 全局转场动画
+const { visible: transitionVisible, handlePreload, handleDone } = usePageTransition()
 </script>
 
 <template>
@@ -23,6 +28,9 @@ authStore.checkSession()
       </NMessageProvider>
     </NDialogProvider>
   </NConfigProvider>
+
+  <!-- 全局转场动画 — 独立于路由生命周期 -->
+  <ChatTransition v-if="transitionVisible" @preload="handlePreload" @done="handleDone" />
 </template>
 
 <style>
