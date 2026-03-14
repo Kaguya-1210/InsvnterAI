@@ -110,7 +110,7 @@ watch([cardEntered, pageReady], ([entered, ready]) => {
             </div>
             <div class="info">
               <div class="name">InsvnterAI</div>
-              <div class="rank">TITAN PROTOCOL · 巨神系统</div>
+              <div class="rank">W7insvnter · Sillytavern</div>
               <div class="desc">NEXT-GEN AI DIALOGUE PLATFORM</div>
             </div>
           </div>
